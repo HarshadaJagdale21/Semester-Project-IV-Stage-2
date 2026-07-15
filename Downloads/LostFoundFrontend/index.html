@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Lost & Found System</title>
+    <style>
+        body {
+            font-family: Arial;
+            margin: 20px;
+        }
+
+        input, button {
+            margin: 5px;
+            padding: 8px;
+        }
+
+        .box {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>🔍 Lost & Found System</h1>
+
+---
+
+# 🟢 REPORT ITEM (POST /report)
+
+<div class="box">
+
+<h2>Report Lost Item</h2>
+
+<input id="item" placeholder="Item name"><br>
+<input id="location" placeholder="Location"><br>
+<input id="contact" placeholder="Contact"><br>
+
+<input type="file" id="image"><br>
+
+<button onclick="reportItem()">Submit Item</button>
+
+</div>
+
+---
+
+# 🟢 SEARCH ITEM (GET /item)
+
+<div class="box">
+
+<h2>Search Item</h2>
+
+<input id="search" placeholder="Enter item name">
+<button onclick="searchItem()">Search</button>
+
+</div>
+
+---
+
+# 🟢 GET ALL ITEMS (GET /items)
+
+<div class="box">
+
+<h2>All Lost Items</h2>
+
+<button onclick="getItems()">Load Items</button>
+
+</div>
+
+---
+
+# 🟢 OUTPUT AREA
+
+<pre id="output"></pre>
+
+<script>
+
+// 🔴 CHANGE THIS TO YOUR API URL
+const API = "https://uo2g86nsdj.execute-api.ap-south-1.amazonaws.com/prod";
+
+
+// ---------------- REPORT ITEM ----------------
+async function reportItem() {
+
+    const item = document.getElementById("item").value;
+    const location = document.getElementById("location").value;
+    const contact = document.getElementById("contact").value;
+
+    const file = document.getElementById("image").files[0];
+
+    let imageName = "";
+
+    if (file) {
+        imageName = file.name; // (simple version for now)
+    }
+
+    const response = await fetch(API + "/report", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            item,
+            location,
+            contact,
+            image: imageName
+        })
+    });
+
+    const data = await response.json();
+
+    alert("Item Reported Successfully!");
+    console.log(data);
+}
+
+
+// ---------------- GET ALL ITEMS ----------------
+async function getItems() {
+
+    const response = await fetch(API + "/items");
+    const data = await response.json();
+
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
+}
+
+
+// ---------------- SEARCH ITEM ----------------
+async function searchItem() {
+
+    const name = document.getElementById("search").value;
+
+    const response = await fetch(API + "/item?name=" + name);
+    const data = await response.json();
+
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Story Library</title>
+    <style>
+        body{
+            font-family: Arial;
+            margin:40px;
+        }
+
+        .card{
+            border:1px solid gray;
+            padding:15px;
+            margin-bottom:20px;
+            border-radius:10px;
+        }
+
+        audio{
+            width:300px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Story Library</h1>
+
+<h3>Total Stories :
+<span id="count">0</span>
+</h3>
+
+<div id="stories"></div>
+
+<script>
+
+const api="https://yfjnoqmoag7yxhqvz3wecncrme0xhvjw.lambda-url.ap-south-1.on.aws/";
+
+loadStories();
+
+async function loadStories(){
+
+    const response=await fetch(api);
+
+    const data=await response.json();
+
+    document.getElementById("count").innerHTML=data.length;
+
+    let html="";
+
+    data.forEach(story=>{
+
+        html+=`
+        <div class="card">
+
+        <h2>${story.Title}</h2>
+
+        <p>Status : ${story.Status}</p>
+
+        <p>Uploaded : ${story.UploadDate}</p>
+
+        <p>Story File : ${story.StoryFile}</p>
+
+        <p>Audio File : ${story.AudioFile}</p>
+
+        <audio controls>
+            <source src="https://YOUR_BUCKET_NAME.s3.ap-south-1.amazonaws.com/${story.AudioFile}" type="audio/mpeg">
+        </audio>
+
+        </div>
+        `;
+    });
+
+    document.getElementById("stories").innerHTML=html;
+
+}
+
+</script>
+
+</body>
+</html>

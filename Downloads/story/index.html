@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Story Upload</title>
+</head>
+<body>
+
+<h2>Upload Story</h2>
+
+<input id="title" placeholder="Story Title"><br><br>
+<textarea id="story" placeholder="Story Text"></textarea><br><br>
+
+<button onclick="uploadStory()">Upload</button>
+
+<p id="msg"></p>
+
+<script>
+async function uploadStory() {
+
+    const title = document.getElementById("title").value;
+    const story = document.getElementById("story").value;
+
+    const response = await fetch("https://7q2gcswcnbbeaeugi4ldalzc740kypvf.lambda-url.ap-south-1.on.aws/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            title: title,
+            story: story
+        })
+    });
+
+    const data = await response.json();
+
+    document.getElementById("msg").innerText =
+        "Uploaded! Story ID: " + data.StoryID;
+}
+</script>
+
+</body>
+</html>
