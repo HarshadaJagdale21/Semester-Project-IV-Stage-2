@@ -1,98 +1,86 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Wildlife Monitoring System</title>
-
-    <style>
-
-        body{
-            font-family: Arial;
-            text-align:center;
-            background:#f4f4f4;
-            margin:40px;
-        }
-
-        h1{
-            color:green;
-        }
-
-        button{
-            padding:10px 20px;
-            margin-top:10px;
-            cursor:pointer;
-        }
-
-        table{
-            width:90%;
-            margin:auto;
-            margin-top:30px;
-            border-collapse:collapse;
-            background:white;
-        }
-
-        th,td{
-            border:1px solid black;
-            padding:10px;
-        }
-
-        th{
-            background:green;
-            color:white;
-        }
-
-        img{
-            width:120px;
-        }
-
-    </style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wildlife Monitoring Control Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<h1>Wildlife Monitoring System</h1>
+<div class="dashboard-container">
+    <header>
+        <div class="brand">
+            <h1>Wildlife Monitoring <span>Control Center</span></h1>
+            <p>Computer Vision Telemetry Diagnostics Dashboard</p>
+        </div>
+        <div class="system-status">
+            <div class="pulse-dot"></div>
+            <span>LIVE TELEMETRY NODE</span>
+        </div>
+    </header>
 
-<input type="file" id="imageInput">
+    <div class="grid-layout">
+        <aside class="panel">
+            <div class="panel-title">Ingest Telemetry Data</div>
+            
+            <div class="dropzone" onclick="document.getElementById('imageInput').click()">
+                <input type="file" id="imageInput" accept="image/*" onchange="displayFileName()">
+                <div class="dropzone-label">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 10px; color: var(--text-secondary);" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <span>Drop dynamic frame payload or <strong>Browse</strong></span>
+                </div>
+                <div id="fileNamePreview" class="file-name-preview"></div>
+            </div>
 
-<br><br>
+            <button class="btn" onclick="uploadImage()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Process Image Stream
+            </button>
 
-<button onclick="uploadImage()">Upload Image</button>
+            <div id="message"></div>
+        </aside>
 
-<h3 id="message"></h3>
+        <main class="panel">
+            <div class="panel-title">
+                <span>Detected Target Metrics</span>
+                <button class="btn btn-secondary" onclick="loadAnimals()">
+                    Refresh Nodes
+                </button>
+            </div>
 
-<hr>
-
-<h2>Detected Animals</h2>
-
-<button onclick="loadAnimals()">Refresh Dashboard</button>
-
-<table>
-
-<thead>
-
-<tr>
-
-<th>Animal</th>
-
-<th>Detection Count</th>
-
-<th>Confidence</th>
-
-<th>Last Seen</th>
-
-<th>Image</th>
-
-</tr>
-
-</thead>
-
-<tbody id="animalTable">
-
-</tbody>
-
-</table>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Class Target</th>
+                            <th>Detection Events</th>
+                            <th>Model Confidence</th>
+                            <th>Last Timestamp</th>
+                            <th>Captured Frame</th>
+                        </tr>
+                    </thead>
+                    <tbody id="animalTable">
+                        </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+</div>
 
 <script src="script.js"></script>
-
+<script>
+    // UI Utility to show selected file name immediately
+    function displayFileName() {
+        const input = document.getElementById('imageInput');
+        const preview = document.getElementById('fileNamePreview');
+        if(input.files && input.files[0]) {
+            preview.innerText = `Selected: ${input.files[0].name}`;
+        } else {
+            preview.innerText = "";
+        }
+    }
+</script>
 </body>
 </html>
