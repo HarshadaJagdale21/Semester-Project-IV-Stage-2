@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS ALB Auto Scaling Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --aws-orange: #ff9900;
+            --neon-green: #10b981;
+            --neon-blue: #3b82f6;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body {
+            background: var(--bg-gradient); color: var(--text-primary);
+            min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 2rem; overflow-x: hidden;
+        }
+        .glow {
+            position: absolute; width: 400px; height: 400px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(0,0,0,0) 70%);
+            top: 10%; left: 10%; z-index: 0; pointer-events: none;
+        }
+        .glow-2 {
+            position: absolute; width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(255, 153, 0, 0.08) 0%, rgba(0,0,0,0) 70%);
+            bottom: 10%; right: 10%; z-index: 0; pointer-events: none;
+        }
+        .dashboard-card {
+            background: var(--card-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border); border-radius: 24px; padding: 3rem;
+            width: 100%; max-width: 650px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            z-index: 1; position: relative; transition: transform 0.3s ease;
+        }
+        .dashboard-card:hover { transform: translateY(-5px); }
+        .header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 2.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 1.5rem;
+        }
+        .brand-zone { display: flex; align-items: center; gap: 1rem; }
+        .aws-icon { font-size: 2.5rem; color: var(--aws-orange); filter: drop-shadow(0 0 8px rgba(255, 153, 0, 0.5)); }
+        h1 {
+            font-size: 1.75rem; font-weight: 700; letter-spacing: -0.025em;
+            background: linear-gradient(to right, #ffffff, #cbd5e1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .status-badge {
+            background: rgba(16, 185, 129, 0.15); border: 1px solid var(--neon-green); color: var(--neon-green);
+            padding: 0.4rem 1rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 600;
+            display: flex; align-items: center; gap: 0.5rem; box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+        }
+        .pulse-dot { width: 8px; height: 8px; background-color: var(--neon-green); border-radius: 50%; animation: pulse 1.8s infinite; }
+        .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2.5rem; }
+        .meta-item {
+            background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;
+        }
+        .meta-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); font-weight: 600; }
+        .meta-value { font-size: 1.2rem; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 0.5rem; }
+        .meta-value i { color: var(--neon-blue); }
+        .metrics-section { background: rgba(0, 0, 0, 0.2); border-radius: 16px; padding: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .metric-header { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--text-secondary); }
+        .progress-bar-container { width: 100%; height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem; }
+        .progress-bar { height: 100%; width: 32%; background: linear-gradient(90deg, var(--neon-blue), #818cf8); border-radius: 4px; transition: width 1s ease-in-out; }
+        .metric-footer { font-size: 0.75rem; color: var(--text-secondary); display: flex; justify-content: space-between; }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        @media (max-width: 600px) {
+            .meta-grid { grid-template-columns: 1fr; }
+            .dashboard-card { padding: 1.5rem; }
+            .header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="glow"></div><div class="glow-2"></div>
+    <div class="dashboard-card">
+        <div class="header">
+            <div class="brand-zone">
+                <i class="fa-brands fa-aws aws-icon"></i>
+                <div>
+                    <h1>Scalable Web App</h1>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem;">EC2 Infrastructure Cluster</p>
+                </div>
+            </div>
+            <div class="status-badge"><div class="pulse-dot"></div><span>ALB Healthy</span></div>
+        </div>
+        <div class="meta-grid">
+            <div class="meta-item">
+                <span class="meta-label">Architecture Pattern</span>
+                <span class="meta-value"><i class="fa-solid fa-network-wired"></i> ALB + Auto Scaling</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Target Instance</span>
+                <span class="meta-value" style="color: #60a5fa;"><i class="fa-solid fa-server"></i> WebServer1</span>
+            </div>
+        </div>
+        <div class="metrics-section">
+            <div class="metric-header">
+                <span><i class="fa-solid fa-microchip"></i> Instance CPU Utilization</span>
+                <span id="cpu-text" style="font-weight: 600; color: #fff;">32%</span>
+            </div>
+            <div class="progress-bar-container"><div class="progress-bar" id="cpu-bar"></div></div>
+            <div class="metric-footer"><span>Zone: us-east-1a</span><span>Traffic: Normal</span></div>
+        </div>
+    </div>
+    <script>
+        const cpuBar = document.getElementById('cpu-bar');
+        const cpuText = document.getElementById('cpu-text');
+        setInterval(() => {
+            const randomCPU = Math.floor(Math.random() * (45 - 20 + 1)) + 20; 
+            cpuBar.style.width = randomCPU + '%';
+            cpuText.innerText = randomCPU + '%';
+        }, 3000);
+    </script>
+</body>
+</html>
