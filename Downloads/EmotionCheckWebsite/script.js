@@ -1,9 +1,11 @@
 // Emotion Check AI - Frontend Logic & AWS Integration
 
 // Default Fallback APIs (based on AWS API Gateway example)
-const DEFAULT_UPLOAD_API = "https://1un5t6ql1i.execute-api.ap-south-1.amazonaws.com/prod/upload";
-const DEFAULT_EMOTION_API = "https://1un5t6ql1i.execute-api.ap-south-1.amazonaws.com/prod/emotions";
-const DEFAULT_HAPPIEST_API = "https://1un5t6ql1i.execute-api.ap-south-1.amazonaws.com/prod/happiest";
+const uploadAPI = "https://1un5t6ql1i.execute-api.ap-south-1.amazonaws.com/upload";
+
+const emotionAPI = "https://1un5t6ql1i.execute-api.ap-south-1.amazonaws.com/emotion";
+
+const happiestAPI = "https://1un5t6ql1i.execute-api.ap-south-1.amazonaws.com/happiest";
 
 // Active API endpoints state
 let uploadAPI = localStorage.getItem("uploadAPI") || DEFAULT_UPLOAD_API;
