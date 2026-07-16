@@ -2,7 +2,89 @@
 <link rel="stylesheet" href="style.css"></head><body>
 <h1>Emotion Check AI</h1>
 <input id="personName" placeholder="Person name">
-<video id="video" autoplay playsinline width="400"></video><br>
+<video id="vi<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Check AI</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-weight/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <header>
+        <h1><i class="fa-solid fa-brain"></i> Emotion Check AI</h1>
+        <p>Capture, analyze, and track emotional states in real-time</p>
+    </header>
+
+    <main class="container">
+        <section class="card camera-section">
+            <h2><i class="fa-solid fa-camera"></i> Live Scanner</h2>
+            <div class="input-group">
+                <label for="personName">Subject Name</label>
+                <input id="personName" type="text" placeholder="e.g., Jane Doe">
+            </div>
+            
+            <div class="video-container">
+                <video id="video" autoplay playsinline></video>
+                <div class="video-overlay">Ready</div>
+            </div>
+
+            <div class="button-group">
+                <button onclick="capture()" class="btn btn-secondary">
+                    <i class="fa-solid fa-camera"></i> Capture
+                </button>
+                <button onclick="upload()" class="btn btn-primary">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload & Analyze
+                </button>
+            </div>
+            <canvas id="canvas" style="display:none"></canvas>
+        </section>
+
+        <section class="dashboard-section">
+            <div class="card happiest-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-face-laugh-beam"></i> Peak Positivity</h2>
+                    <button onclick="loadHappiest()" class="btn btn-sm btn-outline">
+                        <i class="fa-solid fa-sync"></i> Load
+                    </button>
+                </div>
+                <div id="happiest" class="happiest-placeholder">
+                    <p class="muted-text">Click load to reveal the happiest subject.</p>
+                </div>
+            </div>
+
+            <div class="card records-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-list"></i> Scan History</h2>
+                    <button onclick="loadData()" class="btn btn-sm btn-outline">
+                        <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                    </button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>Primary Emotion</th>
+                                <th>Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td colspan="3" class="muted-text text-center">No scans loaded yet. Click Refresh.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>eo" autoplay playsinline width="400"></video><br>
 <button onclick="capture()">Capture</button>
 <button onclick="upload()">Upload</button>
 <canvas id="canvas" style="display:none"></canvas>
