@@ -1,0 +1,13 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Emotion Check AI</title>
+<link rel="stylesheet" href="style.css"></head><body>
+<h1>Emotion Check AI</h1>
+<input id="personName" placeholder="Person name">
+<video id="video" autoplay playsinline width="400"></video><br>
+<button onclick="capture()">Capture</button>
+<button onclick="upload()">Upload</button>
+<canvas id="canvas" style="display:none"></canvas>
+<h2>Records</h2><button onclick="loadData()">Refresh</button>
+<table border="1"><tbody id="tableBody"></tbody></table>
+<h2>Happiest</h2><button onclick="loadHappiest()">Load</button>
+<div id="happiest"></div>
+<script src="script.js"></script></body></html>
