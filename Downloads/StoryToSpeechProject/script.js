@@ -1,5 +1,5 @@
 // Replace with your API Gateway Invoke URL
-const API_URL = "https://2mx42rztqa.execute-api.ap-south-1.amazonaws.com/prod";
+const API_URL = "https://2mx42rztqa.execute-api.ap-south-1.amazonaws.com";
 
 // Upload Story
 async function uploadStory() {
