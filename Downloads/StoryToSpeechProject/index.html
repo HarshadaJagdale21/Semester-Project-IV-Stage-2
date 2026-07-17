@@ -1,28 +1,53 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Story To Speech Generator</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story to Speech Generator</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts for professional typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-<h1>📚 Story To Speech Generator</h1>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <span class="app-logo">🎙️</span>
+            <h1>Story to Speech</h1>
+            <p class="subtitle">Convert your written stories into high-quality spoken audio instantly.</p>
+        </header>
 
-<input type="text" id="title" placeholder="Story Title">
+        <!-- Generator Card -->
+        <main class="main-card">
+            <div class="input-group">
+                <label for="title">Story Title</label>
+                <input type="text" id="title" placeholder="e.g., The Midnight Whispers">
+            </div>
 
-<br><br>
+            <div class="input-group">
+                <label for="story">Your Story</label>
+                <textarea id="story" rows="8" placeholder="Type or paste your story here..."></textarea>
+            </div>
 
-<textarea id="story" rows="10" placeholder="Write your story here..."></textarea>
+            <button id="upload-btn" onclick="uploadStory()">
+                <span>Generate Speech Audio</span>
+            </button>
+        </main>
 
-<br><br>
+        <!-- Audio Library Section -->
+        <section class="library-section">
+            <div class="library-header">
+                <h2>Generated Audio Library</h2>
+                <span id="count" class="badge">Total Stories: 0</span>
+            </div>
 
-<button onclick="uploadStory()">Upload Story</button>
+            <div id="stories" class="stories-grid">
+                <!-- Dynamic stories get loaded here -->
+            </div>
+        </section>
+    </div>
 
-<h2 id="count">Total Stories : 0</h2>
-
-<div id="stories"></div>
-
-<script src="script.js"></script>
-
+    <script src="script.js"></script>
 </body>
 </html>
