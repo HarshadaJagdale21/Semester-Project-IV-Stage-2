@@ -1,0 +1,26 @@
+body{
+    font-family: Arial;
+    width:700px;
+    margin:auto;
+    padding:30px;
+}
+
+input,textarea{
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+}
+
+button{
+    padding:10px 20px;
+    background:green;
+    color:white;
+    border:none;
+    cursor:pointer;
+}
+
+.story{
+    border:1px solid gray;
+    padding:15px;
+    margin-top:20px;
+}
