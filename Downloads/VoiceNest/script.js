@@ -91,11 +91,27 @@ async function searchHouse(query) {
             }
         );
 
-        const data = await response.json();
+       const data = await response.json();
 
-        const houses = JSON.parse(data.body);
+console.log("FULL API RESPONSE:", data);
 
-        displayHouses(houses);
+
+let houses;
+
+
+if (data.body) {
+
+    houses = JSON.parse(data.body);
+
+}
+else {
+
+    houses = data;
+
+}
+
+
+displayHouses(houses);
 
     } catch (error) {
 
