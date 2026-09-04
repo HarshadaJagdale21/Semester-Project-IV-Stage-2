@@ -1,0 +1,819 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: StudyMate academic assistance API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: student
+    description: Student dashboard and academic resources
+  - name: aptitude
+    description: Aptitude practice and assessments
+  - name: ai
+    description: AI-powered academic agents
+  - name: discovery
+    description: Projects, books and recommendations
+  - name: admin
+    description: Administrator operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /auth/register:
+    post:
+      operationId: registerStudent
+      tags: [auth]
+      summary: Register a student account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Registered student
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /auth/login:
+    post:
+      operationId: loginStudent
+      tags: [auth]
+      summary: Sign in as a student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Authenticated student
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/admin-login:
+    post:
+      operationId: loginAdmin
+      tags: [auth]
+      summary: Sign in as an administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Authenticated administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the current session user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /dashboard:
+    get:
+      operationId: getStudentDashboard
+      tags: [student]
+      summary: Get dashboard metrics and activity
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+  /syllabus:
+    get:
+      operationId: listSyllabus
+      tags: [student]
+      summary: List syllabus entries
+      parameters:
+        - $ref: "#/components/parameters/Branch"
+        - $ref: "#/components/parameters/Semester"
+        - $ref: "#/components/parameters/Subject"
+      responses:
+        "200":
+          description: Syllabus list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Syllabus"
+  /notes:
+    get:
+      operationId: listNotes
+      tags: [student]
+      summary: List academic notes
+      parameters:
+        - $ref: "#/components/parameters/Branch"
+        - $ref: "#/components/parameters/Semester"
+        - $ref: "#/components/parameters/Subject"
+      responses:
+        "200":
+          description: Notes list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Note"
+  /question-papers:
+    get:
+      operationId: listQuestionPapers
+      tags: [student]
+      summary: List previous year question papers
+      parameters:
+        - $ref: "#/components/parameters/Branch"
+        - $ref: "#/components/parameters/Semester"
+        - $ref: "#/components/parameters/Subject"
+      responses:
+        "200":
+          description: Question paper list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QuestionPaper"
+  /aptitude/questions:
+    get:
+      operationId: listAptitudeQuestions
+      tags: [aptitude]
+      summary: List practice questions
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: number
+            default: 20
+      responses:
+        "200":
+          description: Aptitude questions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AptitudeQuestion"
+  /tests:
+    get:
+      operationId: listTests
+      tags: [aptitude]
+      summary: List available tests
+      responses:
+        "200":
+          description: Tests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Test"
+  /tests/{id}/submit:
+    post:
+      operationId: submitTest
+      tags: [aptitude]
+      summary: Submit a test attempt
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestSubmission"
+      responses:
+        "200":
+          description: Graded test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestResult"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /attempts:
+    get:
+      operationId: listAttempts
+      tags: [aptitude]
+      summary: List the current student's attempts
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Attempts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TestResult"
+  /ai/study-plan:
+    post:
+      operationId: createStudyPlan
+      tags: [ai]
+      summary: Generate a personalized study plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudyPlanInput"
+      responses:
+        "200":
+          description: Study plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyPlan"
+  /ai/doubt:
+    post:
+      operationId: solveDoubt
+      tags: [ai]
+      summary: Ask the grounded academic doubt solver
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DoubtInput"
+      responses:
+        "200":
+          description: AI answer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Doubt"
+  /ai/generate-test:
+    post:
+      operationId: generateAiTest
+      tags: [ai]
+      summary: Generate a syllabus-grounded practice test
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestGeneratorInput"
+      responses:
+        "200":
+          description: Generated test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test"
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [discovery]
+      summary: List project ideas
+      responses:
+        "200":
+          description: Projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+  /books:
+    get:
+      operationId: listBooks
+      tags: [discovery]
+      summary: List recommended books
+      responses:
+        "200":
+          description: Books
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Book"
+  /recommendations:
+    get:
+      operationId: listRecommendations
+      tags: [discovery]
+      summary: Get personalized recommendations
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Recommendations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recommendation"
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [student]
+      summary: List notifications
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+  /admin/dashboard:
+    get:
+      operationId: getAdminDashboard
+      tags: [admin]
+      summary: Get administrator metrics
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Admin dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboard"
+  /admin/students:
+    get:
+      operationId: listStudents
+      tags: [admin]
+      summary: List students for administrators
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+  /admin/test-results:
+    get:
+      operationId: listAllTestResults
+      tags: [admin]
+      summary: List all student test results
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Test results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TestResult"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    Branch:
+      name: branch
+      in: query
+      schema:
+        type: string
+    Semester:
+      name: semester
+      in: query
+      schema:
+        type: string
+    Subject:
+      name: subject
+      in: query
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string }
+        role: { type: string }
+        branch: { type: string }
+        year: { type: string }
+        semester: { type: string }
+        enrollmentNumber: { type: string }
+        avatar: { type: ["string", "null"] }
+        active: { type: boolean }
+      required: [id, name, email, role, branch, year, semester, enrollmentNumber, active]
+    RegisterInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 2 }
+        email: { type: string }
+        password: { type: string, minLength: 8 }
+        enrollmentNumber: { type: string, minLength: 2 }
+        branch: { type: string }
+        academicYear: { type: string }
+        year: { type: string }
+        semester: { type: string }
+      required: [name, email, password, enrollmentNumber, branch, academicYear, year, semester]
+    LoginInput:
+      type: object
+      properties:
+        email: { type: string }
+        password: { type: string }
+      required: [email, password]
+    AuthResponse:
+      type: object
+      properties:
+        token: { type: string }
+        user:
+          $ref: "#/components/schemas/User"
+      required: [token, user]
+    Dashboard:
+      type: object
+      properties:
+        stats:
+          type: object
+          properties:
+            testsAttempted: { type: number }
+            averageScore: { type: number }
+            accuracy: { type: number }
+            studyHours: { type: number }
+            completedPlans: { type: number }
+            weakTopics: { type: number }
+            notesAvailable: { type: number }
+            papersAvailable: { type: number }
+          required: [testsAttempted, averageScore, accuracy, studyHours, completedPlans, weakTopics, notesAvailable, papersAvailable]
+        performance:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerformancePoint"
+        subjectPerformance:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubjectPerformance"
+        activity:
+          type: array
+          items:
+            $ref: "#/components/schemas/Activity"
+      required: [stats, performance, subjectPerformance, activity]
+    PerformancePoint:
+      type: object
+      properties:
+        label: { type: string }
+        score: { type: number }
+      required: [label, score]
+    SubjectPerformance:
+      type: object
+      properties:
+        subject: { type: string }
+        score: { type: number }
+        color: { type: string }
+      required: [subject, score, color]
+    Activity:
+      type: object
+      properties:
+        title: { type: string }
+        detail: { type: string }
+        time: { type: string }
+        type: { type: string }
+      required: [title, detail, time, type]
+    Syllabus:
+      type: object
+      properties:
+        id: { type: string }
+        branch: { type: string }
+        academicYear: { type: string }
+        year: { type: string }
+        semester: { type: string }
+        subject: { type: string }
+        unit: { type: string }
+        title: { type: string }
+        description: { type: string }
+        fileUrl: { type: ["string", "null"] }
+      required: [id, branch, academicYear, year, semester, subject, unit, title, description]
+    Note:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        subject: { type: string }
+        unit: { type: string }
+        description: { type: string }
+        type: { type: string }
+        uploadedAt: { type: string }
+        size: { type: string }
+        accent: { type: string }
+      required: [id, title, subject, unit, description, type, uploadedAt, size, accent]
+    QuestionPaper:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        subject: { type: string }
+        year: { type: string }
+        semester: { type: string }
+        examType: { type: string }
+        fileUrl: { type: ["string", "null"] }
+      required: [id, title, subject, year, semester, examType]
+    AptitudeQuestion:
+      type: object
+      properties:
+        id: { type: string }
+        question: { type: string }
+        options:
+          type: array
+          items: { type: string }
+        category: { type: string }
+        topic: { type: string }
+        difficulty: { type: string }
+        marks: { type: number }
+      required: [id, question, options, category, topic, difficulty, marks]
+    TestQuestion:
+      type: object
+      properties:
+        id: { type: string }
+        question: { type: string }
+        options:
+          type: array
+          items: { type: string }
+        topic: { type: string }
+        marks: { type: number }
+      required: [id, question, options, topic, marks]
+    Test:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        category: { type: string }
+        description: { type: string }
+        difficulty: { type: string }
+        duration: { type: number }
+        totalMarks: { type: number }
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/TestQuestion"
+      required: [id, title, category, description, difficulty, duration, totalMarks, questions]
+    TestSubmission:
+      type: object
+      properties:
+        answers:
+          type: object
+          additionalProperties: { type: string }
+        timeTaken: { type: number }
+      required: [answers, timeTaken]
+    TestResult:
+      type: object
+      properties:
+        id: { type: string }
+        testId: { type: string }
+        testName: { type: string }
+        category: { type: string }
+        score: { type: number }
+        totalMarks: { type: number }
+        percentage: { type: number }
+        accuracy: { type: number }
+        timeTaken: { type: number }
+        submittedAt: { type: string }
+        strongTopics:
+          type: array
+          items: { type: string }
+        weakTopics:
+          type: array
+          items: { type: string }
+      required: [id, testId, testName, category, score, totalMarks, percentage, accuracy, timeTaken, submittedAt, strongTopics, weakTopics]
+    StudyPlanInput:
+      type: object
+      properties:
+        subject: { type: string }
+        examDate: { type: string }
+        days: { type: number }
+        hoursPerDay: { type: number }
+        level: { type: string }
+        difficultTopics:
+          type: array
+          items: { type: string }
+      required: [subject, examDate, days, hoursPerDay, level, difficultTopics]
+    StudyPlanDay:
+      type: object
+      properties:
+        day: { type: number }
+        title: { type: string }
+        duration: { type: string }
+        tasks:
+          type: array
+          items: { type: string }
+      required: [day, title, duration, tasks]
+    StudyPlan:
+      type: object
+      properties:
+        id: { type: string }
+        subject: { type: string }
+        summary: { type: string }
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudyPlanDay"
+        createdAt: { type: string }
+      required: [id, subject, summary, days, createdAt]
+    DoubtInput:
+      type: object
+      properties:
+        question: { type: string, minLength: 4 }
+        subject: { type: string }
+        mode: { type: string }
+      required: [question, subject, mode]
+    Doubt:
+      type: object
+      properties:
+        id: { type: string }
+        question: { type: string }
+        answer: { type: string }
+        subject: { type: string }
+        sources:
+          type: array
+          items: { type: string }
+        createdAt: { type: string }
+      required: [id, question, answer, subject, sources, createdAt]
+    TestGeneratorInput:
+      type: object
+      properties:
+        subject: { type: string }
+        unit: { type: string }
+        difficulty: { type: string }
+        count: { type: number }
+        duration: { type: number }
+      required: [subject, unit, difficulty, count, duration]
+    Project:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        domain: { type: string }
+        difficulty: { type: string }
+        abstract: { type: string }
+        technologies:
+          type: array
+          items: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+      required: [id, title, domain, difficulty, abstract, technologies, tags]
+    Book:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        author: { type: string }
+        subject: { type: string }
+        description: { type: string }
+        recommendationReason: { type: string }
+        externalLink: { type: string }
+      required: [id, title, author, subject, description, recommendationReason, externalLink]
+    Recommendation:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        type: { type: string }
+        reason: { type: string }
+        subject: { type: string }
+        actionLabel: { type: string }
+      required: [id, title, type, reason, subject, actionLabel]
+    Notification:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        message: { type: string }
+        createdAt: { type: string }
+        read: { type: boolean }
+        type: { type: string }
+      required: [id, title, message, createdAt, read, type]
+    AdminDashboard:
+      type: object
+      properties:
+        stats:
+          type: object
+          properties:
+            students: { type: number }
+            resources: { type: number }
+            questions: { type: number }
+            tests: { type: number }
+            attempts: { type: number }
+            averageScore: { type: number }
+          required: [students, resources, questions, tests, attempts, averageScore]
+        registrations:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerformancePoint"
+        categoryPerformance:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubjectPerformance"
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/Activity"
+      required: [stats, registrations, categoryPerformance, recentActivity]
+
