@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Project Ideas - StudyMate{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="/">Dashboard</a> <span>/</span> Projects</div>
+<div class="page-header">
+    <h1><i class="fas fa-lightbulb" style="color:var(--danger)"></i> Project Ideas</h1>
+    <p>Explore innovative project ideas across domains and difficulty levels</p>
+</div>
+<div style="margin-bottom:24px;display:flex;gap:10px;flex-wrap:wrap">
+    <select class="form-control" style="max-width:200px" id="filterDomain" onchange="filterProjects()">
+        <option value="all">All Domains</option>
+        {% for d in domains %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+    </select>
+    <select class="form-control" style="max-width:200px" id="filterDiff" onchange="filterProjects()">
+        <option value="all">All Levels</option>
+        <option value="easy">Easy</option>
+        <option value="medium">Medium</option>
+        <option value="hard">Hard</option>
+    </select>
+</div>
+<div class="cards-grid stagger" id="projectsList">
+{% for p in projects %}
+    <div class="project-card" data-domain="{{ p.domain }}" data-diff="{{ p.difficulty }}">
+        <div class="difficulty {{ p.difficulty }}"><i class="fas fa-signal"></i> {{ p.difficulty|upper }}</div>
+        <h3>{{ p.title }}</h3>
+        <p>{{ p.description }}</p>
+        <div style="margin-top:8px">
+            {% for t in p.tech %}<span class="tag">{{ t }}</span>{% endfor %}
+        </div>
+        <div style="margin-top:8px"><span class="tag" style="background:rgba(139,92,246,.12);color:var(--accent2)">{{ p.domain }}</span><span class="tag">{{ p.branch }}</span></div>
+    </div>
+{% endfor %}
+</div>
+<script>
+function filterProjects(){
+    const d=document.getElementById('filterDomain').value;
+    const l=document.getElementById('filterDiff').value;
+    document.querySelectorAll('.project-card').forEach(c=>{
+        const dm=d==='all'||c.dataset.domain===d;
+        const dl=l==='all'||c.dataset.diff===l;
+        c.style.display=(dm&&dl)?'':'none';
+    });
+}
+</script>
+{% endblock %}

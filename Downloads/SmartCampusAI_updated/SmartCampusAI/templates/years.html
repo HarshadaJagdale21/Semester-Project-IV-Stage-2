@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ branch }} - {{ type|default('Syllabus') }} - StudyMate{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+    <a href="/">Dashboard</a> <span>/</span>
+    <a href="/{{ type if type else 'syllabus' }}">{{ type|default('Syllabus')|title }}</a> <span>/</span>
+    {{ branch }}
+</div>
+<div class="page-header">
+    <h1>{{ branch }} — Select Year</h1>
+    <p>Choose the academic year to browse {{ type|default('syllabus') }}</p>
+</div>
+<div class="cards-grid stagger">
+{% for year in years %}
+    <a href="/{{ type if type else 'syllabus' }}/{{ branch }}/{{ year }}" class="card-link"><div class="card">
+        <div class="card-icon blue"><i class="fas fa-calendar"></i></div>
+        <h3>{{ year }}</h3>
+        <p>Browse {{ type|default('syllabus') }} for {{ year }}</p>
+    </div></a>
+{% endfor %}
+</div>
+{% if not years %}
+<div class="empty-state"><i class="fas fa-folder-open"></i><h3>No years found</h3><p>Add year folders inside this branch directory</p></div>
+{% endif %}
+{% endblock %}

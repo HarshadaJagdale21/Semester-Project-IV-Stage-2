@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard - StudyMate{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-user-shield"></i> Admin Dashboard</h1>
+    <p>Welcome, {{ user.name }}</p>
+</div>
+
+<div class="cards-grid">
+    <div class="card">
+        <div class="card-icon blue"><i class="fas fa-users"></i></div>
+        <h3>{{ student_count }}</h3>
+        <p>Registered Students</p>
+    </div>
+    <div class="card">
+        <div class="card-icon green"><i class="fas fa-user-shield"></i></div>
+        <h3>{{ admin_count }}</h3>
+        <p>Admin Accounts</p>
+    </div>
+    <div class="card">
+        <div class="card-icon purple"><i class="fas fa-tools"></i></div>
+        <h3>Coming Soon</h3>
+        <p>Upload Syllabus / Notes / PYQs from this dashboard</p>
+    </div>
+</div>
+
+<p style="margin-top:24px;color:var(--text-dim)">
+    This is the starting point for the Admin Panel. Next step: add upload forms here so you don't need to manually copy files into the <code>dataset/</code> folder.
+</p>
+{% endblock %}

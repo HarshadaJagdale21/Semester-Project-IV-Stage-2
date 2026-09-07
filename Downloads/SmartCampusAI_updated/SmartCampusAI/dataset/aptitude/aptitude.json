@@ -1,0 +1,23 @@
+{
+  "quantitative": [
+    {"question":"A train travels 360 km in 4 hours. What is its speed?","options":["A) 80 km/h","B) 90 km/h","C) 100 km/h","D) 70 km/h"],"answer":"B","explanation":"Speed = Distance/Time = 360/4 = 90 km/h"},
+    {"question":"If 5x + 3 = 28, what is x?","options":["A) 3","B) 4","C) 5","D) 6"],"answer":"C","explanation":"5x = 25, so x = 5"},
+    {"question":"What is 15% of 240?","options":["A) 32","B) 34","C) 36","D) 38"],"answer":"C","explanation":"15/100 × 240 = 36"},
+    {"question":"The ratio of boys to girls is 3:4. If there are 21 boys, how many girls?","options":["A) 24","B) 28","C) 30","D) 32"],"answer":"B","explanation":"3/4 = 21/x → x = 28"},
+    {"question":"A item costs ₹400 after 20% discount. Original price?","options":["A) ₹480","B) ₹500","C) ₹520","D) ₹450"],"answer":"B","explanation":"400 = Original × 0.8, so Original = 500"}
+  ],
+  "logical": [
+    {"question":"Find the next: 2, 6, 12, 20, 30, ?","options":["A) 40","B) 42","C) 44","D) 36"],"answer":"B","explanation":"Differences: 4,6,8,10,12 → next is 30+12=42"},
+    {"question":"If APPLE = 50, MANGO = ?","options":["A) 55","B) 57","C) 51","D) 52"],"answer":"C","explanation":"Sum of positions: M(13)+A(1)+N(14)+G(7)+O(15)=50... The pattern encodes letter positions."},
+    {"question":"Pointing to a man, a woman said 'His mother is the only daughter of my mother.' How is the woman related to the man?","options":["A) Mother","B) Sister","C) Aunt","D) Grandmother"],"answer":"A","explanation":"Only daughter of my mother = the woman herself. So the woman is the man's mother."},
+    {"question":"If Monday = 1, Tuesday = 2... What is Friday + Wednesday?","options":["A) 7","B) 8","C) 9","D) 6"],"answer":"B","explanation":"Friday = 5, Wednesday = 3, 5+3 = 8"},
+    {"question":"Complete: AZ, BY, CX, ?","options":["A) DW","B) DV","C) EW","D) DX"],"answer":"A","explanation":"First letter goes forward (A,B,C,D), second goes backward (Z,Y,X,W)"}
+  ],
+  "verbal": [
+    {"question":"Choose the synonym of 'Abundant'","options":["A) Scarce","B) Plentiful","C) Rare","D) Little"],"answer":"B","explanation":"Abundant means plentiful or in great quantity."},
+    {"question":"Choose the antonym of 'Vivacious'","options":["A) Lively","B) Energetic","C) Dull","D) Active"],"answer":"C","explanation":"Vivacious means lively/animated; its antonym is dull."},
+    {"question":"Identify the error: 'He don't know the answer.'","options":["A) He","B) don't","C) know","D) answer"],"answer":"B","explanation":"Correct: He doesn't know. 'Don't' is used with plural subjects."},
+    {"question":"Fill in: The book is ___ the table.","options":["A) in","B) on","C) at","D) by"],"answer":"B","explanation":"'On' is used for surfaces."},
+    {"question":"Choose the correctly spelt word:","options":["A) Accomodate","B) Accommodate","C) Acommodate","D) Acomodate"],"answer":"B","explanation":"Accommodate has double 'c' and double 'm'."}
+  ]
+}

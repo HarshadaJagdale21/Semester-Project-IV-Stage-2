@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Files - StudyMate{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+    <a href="/">Dashboard</a> <span>/</span>
+    <a href="/{{ type if type else 'syllabus' }}">{{ type|default('Syllabus')|title }}</a> <span>/</span>
+    <a href="/{{ type if type else 'syllabus' }}/{{ branch }}">{{ branch }}</a> <span>/</span>
+    {{ year }}
+</div>
+<div class="page-header">
+    <h1>{{ branch }} — {{ year }}</h1>
+    <p>Available files and documents</p>
+</div>
+<div class="file-list stagger">
+{% for file in files %}
+    <div class="file-item">
+        <div class="file-info">
+            <i class="fas {% if file.endswith('.pdf') %}fa-file-pdf{% elif file.endswith('.doc') or file.endswith('.docx') %}fa-file-word{% elif file.endswith('.ppt') or file.endswith('.pptx') %}fa-file-powerpoint{% else %}fa-file{% endif %}"></i>
+            <span>{{ file }}</span>
+        </div>
+        <div class="file-actions">
+            <a href="/{{ type if type else 'syllabus' }}/{{ branch }}/{{ year }}/{{ file }}" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Open</a>
+        </div>
+    </div>
+{% endfor %}
+</div>
+{% if not files %}
+<div class="empty-state"><i class="fas fa-file"></i><h3>No files found</h3><p>Add files to this directory</p></div>
+{% endif %}
+{% endblock %}

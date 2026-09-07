@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Aptitude Practice - StudyMate{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="/">Dashboard</a> <span>/</span> Aptitude</div>
+<div class="page-header">
+    <h1><i class="fas fa-brain" style="color:#06b6d4"></i> Aptitude Practice</h1>
+    <p>Sharpen your skills for placements and competitive exams</p>
+</div>
+
+<div id="categorySelect">
+    <div class="cards-grid stagger">
+        <div class="card" onclick="startQuiz('quantitative')" style="cursor:pointer">
+            <div class="card-icon blue"><i class="fas fa-calculator"></i></div>
+            <h3>Quantitative Aptitude</h3>
+            <p>Numbers, percentages, ratios, speed & more</p>
+        </div>
+        <div class="card" onclick="startQuiz('logical')" style="cursor:pointer">
+            <div class="card-icon purple"><i class="fas fa-puzzle-piece"></i></div>
+            <h3>Logical Reasoning</h3>
+            <p>Patterns, series, puzzles & analytical thinking</p>
+        </div>
+        <div class="card" onclick="startQuiz('verbal')" style="cursor:pointer">
+            <div class="card-icon green"><i class="fas fa-spell-check"></i></div>
+            <h3>Verbal Ability</h3>
+            <p>Vocabulary, grammar, comprehension & more</p>
+        </div>
+    </div>
+</div>
+
+<div id="quizArea" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 id="quizTitle"></h2>
+        <div><span class="quiz-timer" id="quizTimer">00:00</span></div>
+    </div>
+    <div id="quizQuestions"></div>
+    <div style="text-align:center;margin-top:24px">
+        <button class="btn btn-primary" id="submitQuizBtn" onclick="submitQuiz()"><i class="fas fa-check"></i> Submit Quiz</button>
+        <button class="btn btn-outline" onclick="location.reload()" style="margin-left:12px"><i class="fas fa-redo"></i> New Quiz</button>
+    </div>
+    <div id="quizResult" style="display:none" class="quiz-score">
+        <div class="score-num" id="scoreDisplay"></div>
+        <p style="color:var(--text-dim);margin-top:8px" id="scoreText"></p>
+    </div>
+</div>
+
+<script>
+let questions=[];let timer;let seconds=0;let answered=false;
+const allData={{ aptitude_data|tojson }};
+
+function startQuiz(cat){
+    document.getElementById('categorySelect').style.display='none';
+    document.getElementById('quizArea').style.display='block';
+    const titles={quantitative:'Quantitative Aptitude',logical:'Logical Reasoning',verbal:'Verbal Ability'};
+    document.getElementById('quizTitle').textContent=titles[cat]||cat;
+    questions=allData[cat]||[];
+    renderQuestions();
+    seconds=0;
+    timer=setInterval(()=>{seconds++;const m=String(Math.floor(seconds/60)).padStart(2,'0');const s=String(seconds%60).padStart(2,'0');document.getElementById('quizTimer').textContent=m+':'+s},1000);
+}
+
+function renderQuestions(){
+    let html='';
+    questions.forEach((q,i)=>{
+        html+=`<div class="quiz-card"><h3><span class="q-num">Q${i+1}.</span> ${q.question}</h3><div class="quiz-options">`;
+        q.options.forEach((opt,j)=>{
+            html+=`<div class="quiz-option" data-q="${i}" data-a="${String.fromCharCode(65+j)}" onclick="selectOption(this)">${opt}</div>`;
+        });
+        html+=`</div><div class="answer-reveal" id="answer-${i}"><h4><i class="fas fa-check-circle"></i> Answer: ${q.answer})</h4><p>${q.explanation}</p></div></div>`;
+    });
+    document.getElementById('quizQuestions').innerHTML=html;
+}
+
+function selectOption(el){
+    if(answered)return;
+    const q=el.dataset.q;
+    document.querySelectorAll(`.quiz-option[data-q="${q}"]`).forEach(o=>o.classList.remove('selected'));
+    el.classList.add('selected');
+}
+
+function submitQuiz(){
+    if(answered)return;
+    answered=true;
+    clearInterval(timer);
+    let score=0;
+    questions.forEach((q,i)=>{
+        const sel=document.querySelector(`.quiz-option[data-q="${i}"].selected`);
+        const correct=q.answer;
+        document.querySelectorAll(`.quiz-option[data-q="${i}"]`).forEach(o=>{
+            if(o.dataset.a===correct)o.classList.add('correct');
+            else if(o.classList.contains('selected'))o.classList.add('wrong');
+        });
+        if(sel && sel.dataset.a===correct)score++;
+        document.getElementById(`answer-${i}`).classList.add('show');
+    });
+    document.getElementById('quizResult').style.display='block';
+    document.getElementById('scoreDisplay').textContent=score+'/'+questions.length;
+    const pct=Math.round(score/questions.length*100);
+    document.getElementById('scoreText').textContent=pct>=80?'Excellent! 🎉':pct>=50?'Good effort! Keep practicing 💪':'Keep practicing, you will improve! 📚';
+    document.getElementById('submitQuizBtn').style.display='none';
+}
+</script>
+{% endblock %}
