@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  <div>
+    <h1 class="text-2xl font-extrabold text-slate-900">Welcome back, {{ user.name }}</h1>
+    <p class="text-slate-500 text-sm mt-1">
+      {{ user.branch }} &bull; {{ user.year }} &bull; {{ user.semester }}
+      {% if user.enrollment_no %} &bull; Enrollment: {{ user.enrollment_no }}{% endif %}
+    </p>
+  </div>
+</div>
+
+<div class="grid sm:grid-cols-2 gap-4 mt-6">
+  <a href="{{ url_for('resources', kind='syllabus', branch=user.branch, semester=user.semester) }}"
+     class="bg-white rounded-xl p-6 card-shadow border border-slate-100 hover:border-brand-300 transition">
+    <p class="text-3xl font-extrabold text-brand-700">{{ my_branch_syllabus }}</p>
+    <p class="text-sm text-slate-500 mt-1">Syllabus files for your semester</p>
+  </a>
+  <a href="{{ url_for('resources', kind='notes', branch=user.branch, semester=user.semester) }}"
+     class="bg-white rounded-xl p-6 card-shadow border border-slate-100 hover:border-brand-300 transition">
+    <p class="text-3xl font-extrabold text-brand-700">{{ my_branch_notes }}</p>
+    <p class="text-sm text-slate-500 mt-1">Notes for your semester</p>
+  </a>
+</div>
+
+<div class="grid sm:grid-cols-4 gap-3 mt-6">
+  <a href="{{ url_for('resources', kind='syllabus') }}" class="text-center bg-brand-600 text-white rounded-lg py-3 font-semibold hover:bg-brand-700 transition">View Syllabus</a>
+  <a href="{{ url_for('resources', kind='notes') }}" class="text-center bg-white border border-slate-300 rounded-lg py-3 font-semibold hover:bg-slate-100 transition">View Notes</a>
+  <a href="{{ url_for('resources', kind='syllabus') }}?branch=&year=&semester=" class="text-center bg-white border border-slate-300 rounded-lg py-3 font-semibold hover:bg-slate-100 transition">Browse All Branches</a>
+  <a href="{{ url_for('index') }}" class="text-center bg-white border border-slate-300 rounded-lg py-3 font-semibold hover:bg-slate-100 transition">Home</a>
+</div>
+
+<div class="mt-10">
+  <h2 class="text-lg font-bold text-slate-800 mb-3">Recently added for your semester</h2>
+  {% if recent %}
+  <div class="bg-white rounded-xl border border-slate-100 card-shadow divide-y divide-slate-100">
+    {% for r in recent %}
+    <div class="flex items-center justify-between px-5 py-4">
+      <div>
+        <p class="font-semibold text-slate-800">{{ r.title }}</p>
+        <p class="text-sm text-slate-500">{{ r.subject }} &bull; {{ r.kind.capitalize() }} &bull; {{ (r.created_at | dt).strftime('%d %b %Y') }}</p>
+      </div>
+      <a href="{{ url_for('download', resource_id=r.id) }}" class="px-4 py-2 text-sm rounded-lg bg-brand-50 text-brand-700 font-semibold hover:bg-brand-100 transition">Download</a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
+    No resources uploaded yet for your branch/semester. Check back soon.
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

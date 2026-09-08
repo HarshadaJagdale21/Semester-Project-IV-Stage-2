@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-extrabold text-slate-900">Admin Dashboard</h1>
+<p class="text-slate-500 text-sm mt-1">{{ college_name }}</p>
+
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+  <div class="bg-white rounded-xl p-5 card-shadow border border-slate-100">
+    <p class="text-3xl font-extrabold text-brand-700">{{ stats.students }}</p>
+    <p class="text-sm text-slate-500 mt-1">Registered Students</p>
+  </div>
+  <div class="bg-white rounded-xl p-5 card-shadow border border-slate-100">
+    <p class="text-3xl font-extrabold text-brand-700">{{ stats.syllabus }}</p>
+    <p class="text-sm text-slate-500 mt-1">Syllabus Files</p>
+  </div>
+  <div class="bg-white rounded-xl p-5 card-shadow border border-slate-100">
+    <p class="text-3xl font-extrabold text-brand-700">{{ stats.notes }}</p>
+    <p class="text-sm text-slate-500 mt-1">Notes Files</p>
+  </div>
+  <div class="bg-white rounded-xl p-5 card-shadow border border-slate-100">
+    <p class="text-3xl font-extrabold text-brand-700">{{ stats.downloads }}</p>
+    <p class="text-sm text-slate-500 mt-1">Total Downloads</p>
+  </div>
+  <div class="bg-white rounded-xl p-5 card-shadow border border-slate-100">
+    <p class="text-3xl font-extrabold text-emerald-700">{{ stats.online_students }}</p>
+    <p class="text-sm text-slate-500 mt-1">Students Online (5 min)</p>
+  </div>
+</div>
+
+<div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-6">
+  <a href="{{ url_for('admin_upload') }}" class="text-center bg-brand-600 text-white rounded-lg py-3 font-semibold hover:bg-brand-700 transition">+ Upload Syllabus / Notes</a>
+  <a href="{{ url_for('admin_manage') }}" class="text-center bg-white border border-slate-300 rounded-lg py-3 font-semibold hover:bg-slate-100 transition">Manage Files</a>
+  <a href="{{ url_for('admin_students') }}" class="text-center bg-white border border-slate-300 rounded-lg py-3 font-semibold hover:bg-slate-100 transition">Manage Students</a>
+  <a href="{{ url_for('admin_branches') }}" class="text-center bg-white border border-slate-300 rounded-lg py-3 font-semibold hover:bg-slate-100 transition">Manage Branches</a>
+  <a href="{{ url_for('admin_settings') }}" class="text-center bg-white border border-slate-300 rounded-lg py-3 font-semibold hover:bg-slate-100 transition">Website Settings</a>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-6 mt-10">
+  <div>
+    <h2 class="text-lg font-bold text-slate-800 mb-3">Recent Uploads</h2>
+    <div class="bg-white rounded-xl border border-slate-100 card-shadow divide-y divide-slate-100">
+      {% for r in recent_uploads %}
+      <div class="px-5 py-3">
+        <p class="font-semibold text-slate-800 text-sm">{{ r.title }}</p>
+        <p class="text-xs text-slate-500">{{ r.kind.capitalize() }} &bull; {{ r.branch }} &bull; {{ r.semester }} &bull; {{ (r.created_at | dt).strftime('%d %b %Y') }}</p>
+      </div>
+      {% else %}
+      <div class="px-5 py-6 text-center text-slate-500 text-sm">No uploads yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+  <div>
+    <h2 class="text-lg font-bold text-slate-800 mb-3">Recently Registered Students</h2>
+    <div class="bg-white rounded-xl border border-slate-100 card-shadow divide-y divide-slate-100">
+      {% for s in recent_students %}
+      <div class="px-5 py-3">
+        <p class="font-semibold text-slate-800 text-sm">{{ s.name }} <span class="text-slate-400 font-normal">({{ s.email }})</span></p>
+        <p class="text-xs text-slate-500">{{ s.branch }} &bull; {{ s.year }} &bull; {{ s.semester }}</p>
+      </div>
+      {% else %}
+      <div class="px-5 py-6 text-center text-slate-500 text-sm">No students yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

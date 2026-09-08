@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Upload Resource{% endblock %}
+{% block content %}
+
+<div class="max-w-2xl mx-auto bg-white rounded-2xl card-shadow border border-slate-100 p-8">
+  <h1 class="text-2xl font-extrabold text-slate-900">Upload Syllabus / Notes</h1>
+  <p class="text-slate-500 text-sm mt-1">PDF, DOCX, TXT, CSV or JSON — up to 25 MB.</p>
+
+  <form method="POST" enctype="multipart/form-data" class="mt-6 space-y-4">
+    <div>
+      <label class="text-sm font-medium text-slate-700">Resource Type</label>
+      <div class="mt-2 flex gap-4">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="radio" name="kind" value="syllabus" {% if form.kind != 'notes' %}checked{% endif %} required> Syllabus
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="radio" name="kind" value="notes" {% if form.kind == 'notes' %}checked{% endif %}> Notes
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="radio" name="kind" value="pyq" {% if form.kind == 'pyq' %}checked{% endif %}> Previous Year Paper
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="radio" name="kind" value="study_material" {% if form.kind == 'study_material' %}checked{% endif %}> Study Material
+        </label>
+      </div>
+    </div>
+
+    <div>
+      <label class="text-sm font-medium text-slate-700">Title</label>
+      <input type="text" name="title" required value="{{ form.title or '' }}" placeholder="e.g. Data Structures - Unit 3 Notes"
+             class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+    </div>
+
+    <div>
+      <label class="text-sm font-medium text-slate-700">Subject</label>
+      <input type="text" name="subject" required value="{{ form.subject or '' }}" placeholder="e.g. Data Structures"
+             class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+    </div>
+
+    <div>
+      <label class="text-sm font-medium text-slate-700">Description (optional)</label>
+      <textarea name="description" rows="3" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500">{{ form.description or '' }}</textarea>
+    </div>
+
+    <div class="grid sm:grid-cols-3 gap-4">
+      <div>
+        <label class="text-sm font-medium text-slate-700">Branch</label>
+        <select name="branch" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+          <option value="">Select</option>
+          {% for b in branches %}<option value="{{ b }}" {% if form.branch == b %}selected{% endif %}>{{ b }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="text-sm font-medium text-slate-700">Year</label>
+        <select name="year" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+          <option value="">Select</option>
+          {% for y in years %}<option value="{{ y }}" {% if form.year == y %}selected{% endif %}>{{ y }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="text-sm font-medium text-slate-700">Semester</label>
+        <select name="semester" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+          <option value="">Select</option>
+          {% for s in semesters %}<option value="{{ s }}" {% if form.semester == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label class="text-sm font-medium text-slate-700">PDF File</label>
+      <input type="file" name="file" accept="application/pdf" required
+             class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-brand-50 file:text-brand-700">
+    </div>
+
+    <button type="submit" class="w-full py-3 rounded-lg bg-brand-600 text-white font-semibold hover:bg-brand-700 transition">
+      Upload
+    </button>
+  </form>
+</div>
+
+{% endblock %}
