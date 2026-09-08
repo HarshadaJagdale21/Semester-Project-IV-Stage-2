@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ kind.capitalize() }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-2 mb-6">
+  <a href="{{ url_for('resources', kind='syllabus') }}"
+     class="px-4 py-2 rounded-lg font-semibold text-sm {% if kind=='syllabus' %}bg-brand-600 text-white{% else %}bg-white border border-slate-300 text-slate-600{% endif %}">
+     Syllabus
+  </a>
+  <a href="{{ url_for('resources', kind='notes') }}"
+     class="px-4 py-2 rounded-lg font-semibold text-sm {% if kind=='notes' %}bg-brand-600 text-white{% else %}bg-white border border-slate-300 text-slate-600{% endif %}">
+     Notes
+  </a>
+</div>
+
+<form method="GET" class="bg-white rounded-xl border border-slate-100 card-shadow p-5 grid sm:grid-cols-5 gap-3 items-end">
+  <input type="hidden" name="kind" value="{{ kind }}">
+  <div>
+    <label class="text-xs font-medium text-slate-500">Branch</label>
+    <select name="branch" class="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm">
+      <option value="">All branches</option>
+      {% for b in branches %}<option value="{{ b }}" {% if branch==b %}selected{% endif %}>{{ b }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="text-xs font-medium text-slate-500">Year</label>
+    <select name="year" class="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm">
+      <option value="">All years</option>
+      {% for y in years %}<option value="{{ y }}" {% if year==y %}selected{% endif %}>{{ y }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="text-xs font-medium text-slate-500">Semester</label>
+    <select name="semester" class="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm">
+      <option value="">All semesters</option>
+      {% for s in semesters %}<option value="{{ s }}" {% if semester==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="sm:col-span-1">
+    <label class="text-xs font-medium text-slate-500">Search</label>
+    <input type="text" name="q" value="{{ q }}" placeholder="Subject or title"
+           class="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm">
+  </div>
+  <button type="submit" class="bg-brand-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-brand-700 transition">
+    Apply Filters
+  </button>
+</form>
+
+<div class="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {% for r in items %}
+  <div class="bg-white rounded-xl border border-slate-100 card-shadow p-5 flex flex-col">
+    <span class="text-xs font-semibold text-brand-700 bg-brand-50 rounded-full px-2 py-1 w-fit">{{ r.subject }}</span>
+    <h3 class="font-bold text-slate-800 mt-3">{{ r.title }}</h3>
+    <p class="text-sm text-slate-500 mt-1 flex-1">{{ r.description or "No description provided." }}</p>
+    <p class="text-xs text-slate-400 mt-3">{{ r.branch }} &bull; {{ r.year }} &bull; {{ r.semester }}</p>
+    <p class="text-xs text-slate-400">Uploaded {{ (r.created_at | dt).strftime('%d %b %Y') }} &bull; {{ r.downloads }} downloads</p>
+    <a href="{{ url_for('download', resource_id=r.id) }}"
+       class="mt-4 text-center bg-brand-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-brand-700 transition">
+       Download PDF
+    </a>
+  </div>
+  {% else %}
+  <div class="col-span-full bg-white rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-500">
+    No {{ kind }} found matching your filters.
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
