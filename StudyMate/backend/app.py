@@ -306,4 +306,4 @@ def admin_student_list():
     return jsonify(students)
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    app.run(port=5000, debug=False, use_reloader=False)
