@@ -32,19 +32,26 @@ JWT_SECRET = "rcpit_super_secret_jwt_key_2026"
 def ask_ollama(prompt, system="You are an expert engineering professor at R. C. Patel Institute of Technology (RCPIT), Shirpur."):
     try:
         res = requests.post(
-            "http://localhost:11434/api/generate",
+            "http://127.0.0.1:11434/api/generate",
             json={
-                "model": "llama3:8b",
+                "model": "llama3.2",
                 "prompt": f"{system}\n\nTask:\n{prompt}",
-                "stream": False
+                "stream": False,
+                "options": {
+                    "num_predict": 300,
+                    "temperature": 0.3
+                }
             },
             timeout=120
         )
         if res.status_code == 200:
             return res.json().get("response", "").strip()
+        else:
+            print("[Ollama Status Error]:", res.status_code, res.text)
     except Exception as e:
-        print("[Ollama Call Error]:", e)
-    return "Local AI model is processing. Please verify Ollama is active on port 11434."
+        print("[Ollama Connection Error]:", e)
+
+    return "Could not connect to Ollama. Make sure Ollama is running."
 
 # --- AUTHENTICATION APIS ---
 @app.route("/api/auth/register", methods=["POST"])
