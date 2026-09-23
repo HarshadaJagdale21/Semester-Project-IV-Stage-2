@@ -20,7 +20,7 @@ from ai_engine import (
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# MongoDB Connection
+# MongoDB Configuration
 client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017/"))
 db = client[os.getenv("DB_NAME", "studymate_rcpit")]
 
@@ -97,7 +97,7 @@ def register():
         "role": data.get("role", "student"),
         "branch": data.get("branch", "AIML"),
         "year": data.get("year", "2024"),
-        "semester": data.get("semester", "Semester 5"),
+        "semester": data.get("semester", "Semester 8"),
         "enrollment_number": data.get("enrollment_number", "RCPIT-2026-STU"),
         "created_at": datetime.datetime.utcnow()
     }
@@ -127,7 +127,7 @@ def login():
         "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)
     }, JWT_SECRET, algorithm="HS256")
 
-    return jsonify({"token": token, "user": {"id": uid, "name": user["name"], "email": user["email"], "role": user["role"], "branch": user.get("branch", "AIML"), "year": user.get("year", "2024"), "semester": user.get("semester", "Semester 5")}}), 200
+    return jsonify({"token": token, "user": {"id": uid, "name": user["name"], "email": user["email"], "role": user["role"], "branch": user.get("branch", "AIML"), "year": user.get("year", "2024"), "semester": user.get("semester", "Semester 8")}}), 200
 
 @app.route("/api/auth/me", methods=["GET"])
 @token_required
@@ -161,17 +161,24 @@ def get_student_dashboard_stats(current_user):
     else:
         performance_history = [{"date": "Baseline", "accuracy": 65, "score": 3}]
 
+    # Dynamic count of real uploaded resources
+    total_db_notes = notes_col.count_documents({})
+    distinct_subs = notes_col.distinct("subject")
+    
     subjects_tracked = [
-        {"subject": "Machine Learning", "progress": 72, "units_completed": 4, "total_units": 6},
-        {"subject": "Database Systems", "progress": 85, "units_completed": 5, "total_units": 6},
-        {"subject": "Algorithms & DAA", "progress": 60, "units_completed": 3, "total_units": 5},
-        {"subject": "AI Fundamentals", "progress": 90, "units_completed": 5, "total_units": 5}
+        {"subject": s, "progress": 75, "units_completed": 4, "total_units": 6}
+        for s in distinct_subs[:4]
+    ] if distinct_subs else [
+        {"subject": "Deep Learning", "progress": 80, "units_completed": 4, "total_units": 6},
+        {"subject": "Natural Language Processing", "progress": 65, "units_completed": 3, "total_units": 5},
+        {"subject": "Cloud Computing", "progress": 90, "units_completed": 5, "total_units": 5},
+        {"subject": "AI Fundamentals", "progress": 70, "units_completed": 3, "total_units": 5}
     ]
 
     tasks = [
-        {"id": 1, "title": "Review Decision Trees & SVM", "subject": "Machine Learning", "due": "Tomorrow", "priority": "High"},
-        {"id": 2, "title": "Solve 2025 DBMS End-Sem PYQ", "subject": "Database Systems", "due": "In 2 days", "priority": "Medium"},
-        {"id": 3, "title": "Attempt QuickSort & Time Complexity Quiz", "subject": "Algorithms & DAA", "due": "In 3 days", "priority": "High"}
+        {"id": 1, "title": "Revise Transformer Architectures & Attention", "subject": "Deep Learning", "due": "Tomorrow", "priority": "High"},
+        {"id": 2, "title": "Review TF-IDF and N-gram Tokenization Notes", "subject": "NLP", "due": "In 2 days", "priority": "Medium"},
+        {"id": 3, "title": "Attempt QuickSort & Time Complexity Quiz", "subject": "Algorithms", "due": "In 3 days", "priority": "High"}
     ]
 
     return jsonify({
@@ -179,7 +186,8 @@ def get_student_dashboard_stats(current_user):
             "total_tests": total_tests,
             "avg_accuracy": avg_accuracy,
             "total_subjects": len(subjects_tracked),
-            "weak_topics_count": len(weak_topics_set)
+            "weak_topics_count": len(weak_topics_set),
+            "total_notes": total_db_notes
         },
         "performance_history": performance_history,
         "subject_progress": subjects_tracked,
@@ -187,62 +195,46 @@ def get_student_dashboard_stats(current_user):
         "tasks": tasks
     }), 200
 
-# --- ACADEMIC RESOURCES & HIERARCHY ---
+# --- ACADEMIC RESOURCES (SEARCH & FILTERS ACROSS ALL 279 FILES) ---
 @app.route("/api/resources", methods=["GET"])
 def get_resources():
     res_type = request.args.get("type", "notes")
     branch = request.args.get("branch")
     semester = request.args.get("semester")
     subject = request.args.get("subject")
+    search = request.args.get("search", "").strip()
 
-    col = {"syllabus": syllabus_col, "notes": notes_col, "pyqs": pyq_col}.get(res_type, notes_col)
+    col = syllabus_col if res_type == "syllabus" else (pyq_col if res_type == "pyqs" else notes_col)
     query = {}
-    if branch:
-        query["branch"] = branch
-    if semester:
-        query["semester"] = semester
-    if subject:
+    
+    if branch and branch != "ALL":
+        query["branch"] = {"$regex": f"^{branch}$", "$options": "i"}
+    if semester and semester != "ALL":
+        query["semester"] = {"$regex": f"^{semester}$", "$options": "i"}
+    if subject and subject != "ALL":
         query["subject"] = {"$regex": subject, "$options": "i"}
+    if search:
+        query["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"subject": {"$regex": search, "$options": "i"}},
+            {"content": {"$regex": search, "$options": "i"}}
+        ]
 
-    records = list(col.find(query).sort("created_at", -1))
+    records = list(col.find(query).sort("created_at", -1).limit(60))
     for r in records:
         r["_id"] = str(r["_id"])
-    return jsonify(records), 200
+        if "content" in r and len(r["content"]) > 300:
+            r["preview"] = r["content"][:300] + "..."
+        else:
+            r["preview"] = r.get("content", "")
 
-@app.route("/api/resources/upload", methods=["POST"])
-@token_required
-@role_required("admin")
-def upload_resource(current_user):
-    res_type = request.form.get("type", "notes")
-    branch = request.form.get("branch", "AIML")
-    semester = request.form.get("semester", "Semester 5")
-    subject = request.form.get("subject", "General")
-    title = request.form.get("title", "Untitled Resource")
-    unit = request.form.get("unit", "Unit 1")
-
-    extracted_content = ""
-    file = request.files.get("file")
-    if file and file.filename.endswith(".pdf"):
-        try:
-            reader = PdfReader(io.BytesIO(file.read()))
-            for page in reader.pages:
-                extracted_content += (page.extract_text() or "") + "\n"
-        except Exception as e:
-            print("[PDF Extract Error]:", e)
-
-    col = {"syllabus": syllabus_col, "notes": notes_col, "pyqs": pyq_col}.get(res_type, notes_col)
-    doc = {
-        "title": title,
-        "branch": branch,
-        "semester": semester,
-        "subject": subject,
-        "unit": unit,
-        "content": extracted_content.strip() or request.form.get("content", ""),
-        "created_by": current_user["email"],
-        "created_at": datetime.datetime.utcnow()
-    }
-    inserted = col.insert_one(doc)
-    return jsonify({"message": "Uploaded and indexed successfully", "id": str(inserted.inserted_id)}), 201
+    distinct_subjects = col.distinct("subject")
+    
+    return jsonify({
+        "records": records,
+        "total": len(records),
+        "available_subjects": distinct_subjects
+    }), 200
 
 # --- MULTI-AGENT AI SYSTEM ---
 @app.route("/api/ai/doubt", methods=["POST"])
@@ -251,12 +243,18 @@ def ai_doubt(current_user):
     data = request.json or {}
     question = data.get("question", "").strip()
     subject = data.get("subject", "General Engineering")
-    mode = data.get("mode", "Detailed")
+    mode = data.get("mode", "Detailed Explanation")
 
     if not question:
         return jsonify({"error": "Question is required"}), 400
 
-    notes = list(notes_col.find({"subject": {"$regex": subject, "$options": "i"}}))
+    # Retrieve all matched notes from MongoDB
+    notes = list(notes_col.find({"$or": [
+        {"subject": {"$regex": subject, "$options": "i"}},
+        {"title": {"$regex": subject, "$options": "i"}},
+        {"content": {"$regex": question[:15], "$options": "i"}}
+    ]}).limit(10))
+
     result = run_doubt_solver(question, subject, mode, notes)
     
     doubts_col.insert_one({
@@ -292,31 +290,10 @@ def ai_study_plan(current_user):
     })
     return jsonify({"plan": plan, "subject": subject, "branch": branch}), 200
 
-@app.route("/api/ai/generate-test", methods=["POST"])
-@token_required
-def ai_test_generate(current_user):
-    data = request.json or {}
-    subject = data.get("subject", "Artificial Intelligence")
-    difficulty = data.get("difficulty", "Medium")
-    count = min(int(data.get("count", 5)), 10)
-
-    questions = run_test_generator(subject, difficulty, count)
-    return jsonify({"questions": questions, "subject": subject}), 200
-
-@app.route("/api/ai/recommendations", methods=["GET"])
-@token_required
-def ai_recommendations(current_user):
-    last = attempts_col.find_one({"student_email": current_user["email"]}, sort=[("submitted_at", -1)])
-    weak_topics = last.get("weak_topics", []) if last else []
-    recs = run_recommendation_agent(weak_topics)
-    return jsonify({"recommendations": recs, "weak_topics": weak_topics}), 200
-
 # --- APTITUDE & EXAM EVALUATION ---
 @app.route("/api/aptitude/questions", methods=["GET"])
 def get_aptitude_questions():
-    category = request.args.get("category")
-    query = {"category": category} if category else {}
-    qs = list(aptitude_q_col.find(query))
+    qs = list(aptitude_q_col.find())
     for q in qs:
         q["_id"] = str(q["_id"])
         q.pop("correct_answer", None)
@@ -370,7 +347,7 @@ def submit_exam(current_user):
     attempt["detailed_results"] = detailed_results
     return jsonify(attempt), 200
 
-# --- PROJECTS & BOOKS HUBS ---
+# --- PROJECTS & BOOKS ---
 @app.route("/api/projects", methods=["GET"])
 def get_projects():
     projects = list(projects_col.find())
@@ -385,7 +362,7 @@ def get_books():
         b["_id"] = str(b["_id"])
     return jsonify(books), 200
 
-# --- ADMIN DASHBOARD & MONITORING ---
+# --- ADMIN DASHBOARD ---
 @app.route("/api/admin/stats", methods=["GET"])
 @token_required
 @role_required("admin")
