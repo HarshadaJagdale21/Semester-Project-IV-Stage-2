@@ -1,21 +1,22 @@
+
 import React, { useState } from 'react';
 import api from '../api/client';
 import { DashboardLayout } from '../layouts/DashboardLayout';
-import { Brain, Sparkles, Send, Calendar, CheckSquare, Loader2, BookOpen, AlertCircle } from 'lucide-react';
+import { Brain, Sparkles, Send, Calendar, CheckSquare, Loader2, AlertCircle } from 'lucide-react';
 
 export const AiHub = () => {
   const [activeTab, setActiveTab] = useState('doubt');
 
   // Agent 1: Doubt Solver
   const [question, setQuestion] = useState('');
-  const [subject, setSubject] = useState('Machine Learning');
+  const [subject, setSubject] = useState('Deep Learning');
   const [mode, setMode] = useState('Detailed Explanation');
   const [doubtResponse, setDoubtResponse] = useState(null);
   const [doubtLoading, setDoubtLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   // Agent 2: Study Planner
-  const [planSubject, setPlanSubject] = useState('Machine Learning');
+  const [planSubject, setPlanSubject] = useState('Deep Learning');
   const [days, setDays] = useState(5);
   const [hours, setHours] = useState(3);
   const [planResponse, setPlanResponse] = useState(null);
@@ -52,13 +53,12 @@ export const AiHub = () => {
 
   return (
     <DashboardLayout>
-      {/* Header Banner */}
       <div className="mb-8">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1">
           <Sparkles className="h-4 w-4" /> Multi-Agent Intelligence Engine
         </div>
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Academic AI Hub</h1>
-        <p className="text-sm text-slate-500 mt-1">Autonomous agents grounded in R. C. Patel Institute of Technology engineering syllabi.</p>
+        <p className="text-sm text-slate-500 mt-1">Autonomous agents grounded in your uploaded department materials.</p>
       </div>
 
       {errorMsg && (
@@ -68,7 +68,7 @@ export const AiHub = () => {
         </div>
       )}
 
-      {/* Modern Tabs */}
+      {/* Tabs */}
       <div className="flex gap-3 border-b border-slate-200 mb-8 pb-1">
         <button
           onClick={() => setActiveTab('doubt')}
@@ -95,23 +95,24 @@ export const AiHub = () => {
       {/* TAB 1: RAG Doubt Solver */}
       {activeTab === 'doubt' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Query Form */}
           <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h2 className="text-base font-bold text-slate-900 mb-1">Ask Academic Doubt</h2>
-            <p className="text-xs text-slate-500 mb-5">Grounds answers in department notes & syllabi.</p>
+            <p className="text-xs text-slate-500 mb-5">Grounds answers directly in your lecture notes.</p>
 
             <form onSubmit={handleAskDoubt} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Engineering Subject</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Target Subject</label>
                 <select
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium focus:border-indigo-600 focus:outline-none bg-slate-50"
                 >
+                  <option value="Deep Learning">Deep Learning</option>
                   <option value="Machine Learning">Machine Learning</option>
                   <option value="Database Systems">Database Systems</option>
-                  <option value="Algorithms & DAA">Algorithms & DAA</option>
-                  <option value="AI Fundamentals">AI Fundamentals</option>
+                  <option value="Natural Language Processing">Natural Language Processing</option>
+                  <option value="Computer Networks">Computer Networks</option>
+                  <option value="Cloud Computing">Cloud Computing</option>
                 </select>
               </div>
 
@@ -134,7 +135,7 @@ export const AiHub = () => {
                   rows={5}
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="e.g. Explain how Backpropagation calculates gradients using the chain rule..."
+                  placeholder="e.g. Explain how attention mechanism works in Transformer models..."
                   className="w-full rounded-xl border border-slate-200 p-3 text-xs font-medium focus:border-indigo-600 focus:outline-none bg-slate-50 leading-relaxed"
                   required
                 />
@@ -151,11 +152,10 @@ export const AiHub = () => {
             </form>
           </div>
 
-          {/* Answer Output */}
           <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[420px]">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Agent Output</h2>
+                <h2 className="text-base font-bold text-slate-900">Agent Answer</h2>
                 <p className="text-xs text-slate-500">Structured academic breakdown</p>
               </div>
               {doubtResponse && (
@@ -173,7 +173,7 @@ export const AiHub = () => {
               <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-xs text-center p-8">
                 <Brain className="h-10 w-10 mb-3 text-slate-300" />
                 <p className="font-semibold text-slate-600">No query submitted yet</p>
-                <p className="text-slate-400 mt-1 max-w-xs">Ask a question to invoke the RAG pipeline with RCPIT department context.</p>
+                <p className="text-slate-400 mt-1 max-w-xs">Ask a question to invoke the RAG pipeline with your notes context.</p>
               </div>
             )}
           </div>
@@ -195,10 +195,12 @@ export const AiHub = () => {
                   onChange={(e) => setPlanSubject(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-slate-50 font-medium"
                 >
+                  <option value="Deep Learning">Deep Learning</option>
                   <option value="Machine Learning">Machine Learning</option>
                   <option value="Database Systems">Database Systems</option>
-                  <option value="Algorithms & DAA">Algorithms & DAA</option>
-                  <option value="AI Fundamentals">AI Fundamentals</option>
+                  <option value="Natural Language Processing">Natural Language Processing</option>
+                  <option value="Computer Networks">Computer Networks</option>
+                  <option value="Cloud Computing">Cloud Computing</option>
                 </select>
               </div>
 
@@ -259,7 +261,7 @@ export const AiHub = () => {
                     </ul>
                   </div>
                   <div className="pt-3 border-t border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                    Target: End-Sem Unit Mastery
+                    Target: Unit Mastery
                   </div>
                 </div>
               ))}
