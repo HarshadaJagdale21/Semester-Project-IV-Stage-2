@@ -4,13 +4,12 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Login } from './pages/Login';
 import { StudentDashboard } from './pages/StudentDashboard';
-
-const AdminDashboardPlaceholder = () => (
-  <div className="p-8">
-    <h1 className="text-2xl font-bold">Admin Dashboard (Module 3 Loading...)</h1>
-    <p className="mt-2 text-slate-600">Admin privileges verified!</p>
-  </div>
-);
+import { AiHub } from './pages/AiHub';
+import { AptitudeTest } from './pages/AptitudeTest';
+import { AcademicResources } from './pages/AcademicResources';
+import { ProjectsHub } from './pages/ProjectsHub';
+import { BooksHub } from './pages/BooksHub';
+import { AdminDashboard } from './pages/AdminDashboard';
 
 export default function App() {
   return (
@@ -18,7 +17,8 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
-          
+
+          {/* Student Protected Routes */}
           <Route
             path="/dashboard"
             element={
@@ -27,12 +27,61 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/ai-hub"
+            element={
+              <ProtectedRoute requiredRole="student">
+                <AiHub />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/aptitude"
+            element={
+              <ProtectedRoute requiredRole="student">
+                <AptitudeTest />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/resources"
+            element={
+              <ProtectedRoute requiredRole="student">
+                <AcademicResources />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects"
+            element={
+              <ProtectedRoute requiredRole="student">
+                <ProjectsHub />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/books"
+            element={
+              <ProtectedRoute requiredRole="student">
+                <BooksHub />
+              </ProtectedRoute>
+            }
+          />
 
+          {/* Admin Protected Routes */}
           <Route
             path="/admin"
             element={
               <ProtectedRoute requiredRole="admin">
-                <AdminDashboardPlaceholder />
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/resources"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AcademicResources />
               </ProtectedRoute>
             }
           />
