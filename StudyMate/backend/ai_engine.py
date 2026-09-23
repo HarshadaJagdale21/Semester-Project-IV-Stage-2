@@ -2,35 +2,38 @@ import os
 import json
 import requests
 from dotenv import load_dotenv
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
-load_dotenv()
+# Force load .env from current folder
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AQ.Ab8RN6KcrDf5pjyNcSIIxiQptWgsd0GPiPQyFJadP_6dcV2sBg").strip()
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
 
-# Configure Gemini if key is provided
+# 1. Setup Gemini Client if key exists
 gemini_model = None
-if GEMINI_API_KEY:
+if GEMINI_API_KEY and not GEMINI_API_KEY.startswith("your_"):
     try:
         import google.generativeai as genai
         genai.configure(api_key=GEMINI_API_KEY)
+        # Use gemini-1.5-flash or gemini-2.0-flash
         gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+        print("[AI Engine] Successfully connected to Gemini API.")
     except Exception as e:
-        print("[Gemini Init Error]:", e)
+        print("[AI Engine] Gemini initialization error:", e)
 
-def query_llm(prompt, system_instruction="You are an engineering professor at RCPIT, Shirpur."):
-    """Dispatches to Gemini API if configured; otherwise falls back to local Ollama."""
+def query_llm(prompt, system_instruction="You are an expert engineering professor at R. C. Patel Institute of Technology (RCPIT), Shirpur."):
+    """Dispatches to Gemini API if active; otherwise uses local Ollama."""
+    # Attempt 1: Gemini API
     if gemini_model:
         try:
-            full_prompt = f"{system_instruction}\n\nTask:\n{prompt}"
+            full_prompt = f"System Instruction: {system_instruction}\n\nTask:\n{prompt}"
             response = gemini_model.generate_content(full_prompt)
-            return response.text.strip()
+            if response and response.text:
+                return response.text.strip()
         except Exception as e:
-            print("[Gemini Call Failed, falling back to Ollama]:", e)
+            print("[AI Engine] Gemini generation failed, falling back to Ollama:", e)
 
-    # Local Ollama fallback
+    # Attempt 2: Local Ollama
     try:
         res = requests.post(
             f"{OLLAMA_URL}/api/generate",
@@ -39,105 +42,98 @@ def query_llm(prompt, system_instruction="You are an engineering professor at RC
                 "prompt": f"{system_instruction}\n\nTask:\n{prompt}",
                 "stream": False,
                 "options": {
-                    "num_predict": 500,
+                    "num_predict": 600,
                     "temperature": 0.2
                 }
             },
-            timeout=120
+            timeout=90
         )
         if res.status_code == 200:
             return res.json().get("response", "").strip()
+        else:
+            print(f"[AI Engine] Ollama HTTP error: {res.status_code} - {res.text}")
     except Exception as e:
-        print("[Ollama Connection Error]:", e)
+        print("[AI Engine] Ollama connection error:", e)
 
-    return "AI Engine is currently unreachable. Ensure local Ollama or GEMINI_API_KEY is configured."
+    return "⚠️ AI engine could not connect to Gemini API or local Ollama. Please check your terminal for details."
 
-# --- RAG RETRIEVAL PIPELINE ---
-def retrieve_relevant_context(query, documents, top_k=2):
-    """Computes TF-IDF cosine similarity across stored notes/syllabus texts."""
-    if not documents:
-        return ""
-    
-    corpus = [d.get("content", "") + " " + d.get("title", "") for d in documents]
-    if not any(t.strip() for t in corpus):
-        return ""
-
-    try:
-        vectorizer = TfidfVectorizer(stop_words='english')
-        tfidf_matrix = vectorizer.fit_transform(corpus)
-        query_vec = vectorizer.transform([query])
-        scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
-        top_indices = scores.argsort()[-top_k:][::-1]
-        
-        retrieved_texts = []
-        for idx in top_indices:
-            if scores[idx] > 0.05:  # Relevance threshold
-                retrieved_texts.append(f"[{documents[idx].get('title', 'Ref')}]: {documents[idx].get('content', '')}")
-        return "\n\n".join(retrieved_texts)
-    except Exception:
-        return ""
-
-# --- AGENT 1: DOUBT SOLVER AGENT ---
+# --- AGENT 1: RAG DOUBT SOLVER AGENT ---
 def run_doubt_solver(question, subject, mode, repository_notes):
-    grounded_context = retrieve_relevant_context(question, repository_notes)
-    grounding_source = "RCPIT College Repository Notes" if grounded_context else "General Engineering Knowledge"
+    # Context extraction from notes
+    matched_texts = []
+    for n in repository_notes:
+        if subject.lower() in n.get("subject", "").lower() or subject.lower() in n.get("title", "").lower():
+            matched_texts.append(f"Unit Note [{n.get('title')}]: {n.get('content')}")
+    
+    grounded_context = "\n\n".join(matched_texts[:3])
+    grounding_source = "RCPIT College Repository Notes" if grounded_context else "Standard Engineering Curriculum"
 
-    prompt = """Subject: {subject}
-Response Mode: {mode}
-Student Question: {question}
+    prompt = """You are the StudyMate Academic AI Doubt Solver for engineering students at RCPIT Shirpur.
+Subject: {subject}
+Response Style: {mode}
 
-Context from Uploaded Department Materials:
-{grounded_context if grounded_context else 'No specific department notes found. Base your explanation on standard engineering principles.'}
+Official Department Notes Available:
+{grounded_context if grounded_context else 'No custom lecture notes uploaded yet. Base your authoritative answer on standard university curriculum.'}
 
-Structure your answer with:
-### 1. Direct Solution
-### 2. Core Technical Concepts / Formulas
+Student Question:
+{question}
+
+Provide your response in structured Markdown format:
+### 1. Direct Summary
+A crisp, direct explanation of the answer.
+
+### 2. Key Concepts & Formulas
+Bullet points with mathematical formulas, architectural steps, or time/space complexities where relevant.
+
 ### 3. Concrete Example
-### 4. Exam / Viva Tip
+A practical real-world or programming code snippet illustrating the concept.
+
+### 4. Exam & Viva Tip
+A high-probability question or keyword examiners look for during viva.
 """
-    answer = query_llm(prompt, system_instruction=f"You are the StudyMate AI Academic Doubt Solver for {subject} at RCPIT.")
+    answer = query_llm(prompt, system_instruction=f"You are an academic specialist for {subject} at RCPIT.")
     return {"answer": answer, "grounding": grounding_source, "context_used": bool(grounded_context)}
 
-# --- AGENT 2: STUDY PLANNER AGENT ---
+# --- AGENT 2: SUBJECT STUDY PLANNER AGENT ---
 def run_study_planner(subject, branch, days, hours_per_day, weak_topics):
-    weak_str = ", ".join(weak_topics) if weak_topics else f"Core modules of {subject}"
+    weak_str = ", ".join(weak_topics) if weak_topics else f"Core high-weightage topics of {subject}"
     
-    prompt = """Create a strict {days}-day study plan exclusively for the engineering subject '{subject}' for the {branch} department.
-DO NOT include topics from any other subject.
-Priority weak areas: {weak_str}.
-Study hours available per day: {hours_per_day} hours.
+    prompt = """Generate a comprehensive, subject-specific {days}-day engineering study timetable for '{subject}' ({branch} department).
+STRICT RULE: Focus ONLY on topics belonging to f'{subject}'. Do NOT include unrelated engineering subjects.
+Student's weak areas needing revision: {weak_str}.
+Daily study allocation: {hours_per_day} hours/day.
 
-Return ONLY a valid JSON array of objects. Do not wrap with backticks or preamble:
+Return ONLY a valid JSON array of objects. No intro text, no markdown fences:
 [
-  {{"day": 1, "topic": f"Exact topic from {subject}", "hours": {hours_per_day}, "tasks": ["Read concept", "Practice 2 numericals", "Review summary"]}}
+  {{"day": 1, "topic": f"Exact topic name from {subject}", "hours": {hours_per_day}, "tasks": ["Read concept & derivation", "Solve 3 PYQs", "Summarize formulas"]}}
 ]
 """
-    raw = query_llm(prompt, system_instruction=f"You are the StudyMate Academic Curriculum Planner locked strictly to {subject}.")
+    raw = query_llm(prompt, system_instruction=f"You are a syllabus coordinator for {subject}. Output valid JSON only.")
     try:
         start = raw.find('[')
         end = raw.rfind(']') + 1
-        plan = json.loads(raw[start:end])
+        return json.loads(raw[start:end])
     except Exception:
-        plan = [
-            {"day": i + 1, "topic": f"{subject} - Module {i + 1} Deep Dive", "hours": hours_per_day, "tasks": ["Read textbook unit", "Review class slides", "Solve 3 PYQs"]}
+        # Fallback syllabus-aligned structure
+        return [
+            {"day": i + 1, "topic": f"{subject} - Module {i + 1}: Foundational Concepts & Applications", "hours": hours_per_day, "tasks": ["Review textbook unit", "Practice numerical problems", "Solve 2025 End-Sem PYQs"]}
             for i in range(days)
         ]
-    return plan
 
 # --- AGENT 3: TEST GENERATOR AGENT ---
 def run_test_generator(subject, difficulty, count):
-    prompt = """Generate {count} MCQs strictly for '{subject}' at difficulty level '{difficulty}'.
-Return ONLY a valid JSON array of objects:
+    prompt = """Generate {count} multiple choice questions (MCQs) for the engineering subject '{subject}' at '{difficulty}' difficulty.
+Return ONLY a valid JSON array:
 [
   {{
-    "question": "Clear technical question?",
+    "question": "Technical question text",
     "options": ["A", "B", "C", "D"],
-    "correct_answer": "Exact string of correct choice",
-    "explanation": "Why this answer is correct."
+    "correct_answer": "Exact string of one option",
+    "explanation": "Detailed explanation why this answer is correct"
   }}
 ]
 """
-    raw = query_llm(prompt, system_instruction="You are the StudyMate Exam Test Generator. Return ONLY a JSON array.")
+    raw = query_llm(prompt, system_instruction=f"You are an exam evaluator for {subject}. Return JSON only.")
     try:
         start = raw.find('[')
         end = raw.rfind(']') + 1
@@ -145,10 +141,10 @@ Return ONLY a valid JSON array of objects:
     except Exception:
         return [
             {
-                "question": f"Core fundamental principle of {subject}?",
-                "options": ["Option A", "Option B", "Option C", "Option D"],
-                "correct_answer": "Option A",
-                "explanation": "Standard textbook foundational principle."
+                "question": f"Which of the following is a primary characteristic of {subject}?",
+                "options": ["High computational throughput", "Deterministic convergence", "Heuristic optimization", "Polynomial verification"],
+                "correct_answer": "Deterministic convergence",
+                "explanation": f"Foundational textbook property of {subject}."
             }
         ]
 
@@ -159,14 +155,14 @@ def run_recommendation_agent(weak_topics, subject="Engineering"):
         for t in weak_topics:
             recs.append({
                 "topic": t,
-                "action": f"Read Unit notes for {t} and take a 5-question targeted quiz.",
+                "action": f"Review Unit lecture notes for '{t}' and solve 5 targeted mock test questions.",
                 "priority": "High",
-                "resource_type": "Notes & Practice"
+                "resource_type": "Notes & PYQ"
             })
     else:
         recs.append({
             "topic": f"{subject} End-Sem Prep",
-            "action": "Consistent performance detected. Proceed to solve 2025 Previous Year Question Papers.",
+            "action": "Consistent performance! Advance to solving previous year exam papers.",
             "priority": "Normal",
             "resource_type": "PYQs"
         })
