@@ -1,6 +1,7 @@
 import os
 import datetime
 import json
+from functools import wraps
 import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -10,9 +11,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# MongoDB Connection
 client = MongoClient("mongodb://localhost:27017/")
 db = client["studymate_rcpit"]
 
@@ -26,20 +26,56 @@ study_plans_col = db["study_plans"]
 projects_col = db["projects"]
 books_col = db["books"]
 
-JWT_SECRET = "rcpit_super_secret_jwt_key_2026"
+JWT_SECRET = os.getenv("JWT_SECRET", "rcpit_super_secret_jwt_key_2026")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
 
-# Core Ollama caller
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header:
+            return jsonify({"error": "Authorization token missing"}), 401
+        
+        parts = auth_header.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return jsonify({"error": "Invalid token header format"}), 401
+        
+        token = parts[1]
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            current_user = users_col.find_one({"_id": ObjectId(payload["id"])})
+            if not current_user:
+                return jsonify({"error": "User account no longer exists"}), 401
+            current_user["_id"] = str(current_user["_id"])
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Session token has expired. Please log in again."}), 401
+        except Exception:
+            return jsonify({"error": "Invalid authentication token"}), 401
+
+        return f(current_user, *args, **kwargs)
+    return decorated
+
+def role_required(required_role):
+    def decorator(f):
+        @wraps(f)
+        def decorated(current_user, *args, **kwargs):
+            if current_user.get("role") != required_role:
+                return jsonify({"error": f"Forbidden: Requires {required_role} privileges"}), 403
+            return f(current_user, *args, **kwargs)
+        return decorated
+    return decorator
+
 def ask_ollama(prompt, system="You are an expert engineering professor at R. C. Patel Institute of Technology (RCPIT), Shirpur."):
     try:
         res = requests.post(
-            "http://127.0.0.1:11434/api/generate",
+            f"{OLLAMA_URL}/api/generate",
             json={
-                "model": "llama3.2",
+                "model": "llama3.2:latest",
                 "prompt": f"{system}\n\nTask:\n{prompt}",
                 "stream": False,
                 "options": {
-                    "num_predict": 300,
-                    "temperature": 0.3
+                    "num_predict": 450,
+                    "temperature": 0.2
                 }
             },
             timeout=120
@@ -51,44 +87,37 @@ def ask_ollama(prompt, system="You are an expert engineering professor at R. C. 
     except Exception as e:
         print("[Ollama Connection Error]:", e)
 
-    return "Could not connect to Ollama. Make sure Ollama is running."
+    return "Could not connect to Ollama. Make sure Ollama is running at http://127.0.0.1:11434."
 
-# --- AUTHENTICATION APIS ---
 @app.route("/api/auth/register", methods=["POST"])
 def register():
     data = request.json or {}
-    email = data.get("email")
+    email = (data.get("email") or "").strip().lower()
+    name = (data.get("name") or "").strip()
+    password = data.get("password")
+
+    if not email or not password or not name:
+        return jsonify({"error": "Name, email, and password are required"}), 400
+
     if users_col.find_one({"email": email}):
-        return jsonify({"error": "Email already registered"}), 400
+        return jsonify({"error": "Email is already registered"}), 400
 
     user = {
-        "name": data.get("name"),
+        "name": name,
         "email": email,
-        "password_hash": generate_password_hash(data.get("password")),
-        "role": "student",
-        "branch": data.get("branch", "Artificial Intelligence & Machine Learning"),
-        "year": data.get("year", "Third Year"),
+        "password_hash": generate_password_hash(password),
+        "role": data.get("role", "student"),
+        "branch": data.get("branch", "AIML"),
+        "year": data.get("year", "2024"),
         "semester": data.get("semester", "Semester 5"),
-        "enrollment_number": data.get("enrollment_number", "RCPIT-2026-001"),
+        "enrollment_number": data.get("enrollment_number", "RCPIT-STU-001"),
         "created_at": datetime.datetime.utcnow()
     }
     res = users_col.insert_one(user)
-    user["_id"] = res.inserted_id
-    token = jwt.encode({"id": str(user["_id"]), "role": "student", "email": email, "name": user["name"]}, JWT_SECRET, algorithm="HS256")
-    return jsonify({"token": token, "user": {"name": user["name"], "role": "student", "email": email, "branch": user["branch"]}}), 201
-
-@app.route("/api/auth/login", methods=["POST"])
-def login():
-    data = request.json or {}
-    email = data.get("email")
-    password = data.get("password")
-    
-    user = users_col.find_one({"email": email})
-    if not user or not check_password_hash(user["password_hash"], password):
-        return jsonify({"error": "Invalid email or password"}), 401
+    user_id_str = str(res.inserted_id)
 
     token = jwt.encode({
-        "id": str(user["_id"]),
+        "id": user_id_str,
         "name": user["name"],
         "email": user["email"],
         "role": user["role"],
@@ -98,108 +127,206 @@ def login():
     return jsonify({
         "token": token,
         "user": {
+            "id": user_id_str,
+            "name": user["name"],
+            "email": user["email"],
+            "role": user["role"],
+            "branch": user["branch"],
+            "year": user["year"],
+            "semester": user["semester"]
+        }
+    }), 201
+
+@app.route("/api/auth/login", methods=["POST"])
+def login():
+    data = request.json or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password")
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+
+    user = users_col.find_one({"email": email})
+    if not user or not check_password_hash(user.get("password_hash", ""), password):
+        return jsonify({"error": "Invalid email or password"}), 401
+
+    user_id_str = str(user["_id"])
+    token = jwt.encode({
+        "id": user_id_str,
+        "name": user["name"],
+        "email": user["email"],
+        "role": user["role"],
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    }, JWT_SECRET, algorithm="HS256")
+
+    return jsonify({
+        "token": token,
+        "user": {
+            "id": user_id_str,
             "name": user["name"],
             "email": user["email"],
             "role": user["role"],
             "branch": user.get("branch", "AIML"),
-            "year": user.get("year", "Third Year"),
+            "year": user.get("year", "2024"),
             "semester": user.get("semester", "Semester 5")
         }
     }), 200
 
-# --- ACADEMIC RESOURCES (Syllabus, Notes, PYQs) ---
+@app.route("/api/auth/me", methods=["GET"])
+@token_required
+def get_current_user_profile(current_user):
+    return jsonify({
+        "user": {
+            "id": current_user["_id"],
+            "name": current_user["name"],
+            "email": current_user["email"],
+            "role": current_user["role"],
+            "branch": current_user.get("branch", "AIML"),
+            "year": current_user.get("year", "2024"),
+            "semester": current_user.get("semester", "Semester 5"),
+            "enrollment_number": current_user.get("enrollment_number", "")
+        }
+    }), 200
+
 @app.route("/api/resources", methods=["GET"])
 def get_resources():
     res_type = request.args.get("type", "notes")
+    branch = request.args.get("branch")
+    semester = request.args.get("semester")
+    subject = request.args.get("subject")
+
     col = {"syllabus": syllabus_col, "notes": notes_col, "pyqs": pyq_col}.get(res_type, notes_col)
-    records = list(col.find().sort("created_at", -1))
+    query = {}
+    if branch:
+        query["branch"] = branch
+    if semester:
+        query["semester"] = semester
+    if subject:
+        query["subject"] = {"$regex": subject, "$options": "i"}
+
+    records = list(col.find(query).sort("created_at", -1))
     for r in records:
         r["_id"] = str(r["_id"])
-    return jsonify(records)
+    return jsonify(records), 200
 
 @app.route("/api/resources", methods=["POST"])
-def add_resource():
+@token_required
+@role_required("admin")
+def add_resource(current_user):
     data = request.json or {}
     res_type = data.get("type", "notes")
     col = {"syllabus": syllabus_col, "notes": notes_col, "pyqs": pyq_col}.get(res_type, notes_col)
+    
     data["created_at"] = datetime.datetime.utcnow()
-    col.insert_one(data)
-    return jsonify({"message": "Resource saved successfully"}), 201
+    data["created_by"] = current_user["email"]
+    inserted = col.insert_one(data)
+    return jsonify({"message": "Resource saved successfully", "id": str(inserted.inserted_id)}), 201
 
-# --- MULTI-AGENT AI SYSTEM ---
-
-# Agent 1: Doubt Solver Agent (RAG Grounded)
 @app.route("/api/ai/doubt", methods=["POST"])
-def solve_doubt():
+@token_required
+def solve_doubt(current_user):
     data = request.json or {}
-    question = data.get("question", "")
-    subject = data.get("subject", "General")
-    mode = data.get("mode", "Detailed Explanation")
+    question = data.get("question", "").strip()
+    subject = data.get("subject", "General Engineering").strip()
+    mode = data.get("mode", "Detailed")
 
-    # Semantic grounding check
+    if not question:
+        return jsonify({"error": "Question field is required"}), 400
+
     matched_notes = list(notes_col.find({"subject": {"$regex": subject, "$options": "i"}}).limit(2))
-    notes_text = " ".join([n.get("content", "") for n in matched_notes])
-    grounding = "RCPIT College Repository" if notes_text else "Standard Engineering Curriculum"
+    notes_text = "\n".join([f"- {n.get('title')}: {n.get('content')}" for n in matched_notes])
+    grounding = "RCPIT Department Notes" if notes_text else "Engineering Curriculum Reference"
 
-    prompt = """
-Context from College Repository: {notes_text if notes_text else 'Standard Syllabus'}
+    prompt = """You are an expert professor for engineering students at RCPIT.
+Reference Materials:
+{notes_text if notes_text else 'Standard textbook reference for ' + subject}
+
 Subject: {subject}
-Format Mode: {mode}
+Student Question: {question}
 
-Question: {question}
+Provide your answer in clear Markdown with the following sections:
+### 1. Direct Summary
+[2-3 sentences concise explanation]
 
-Provide a clear, authoritative response. State key formulas, algorithmic steps, or bullet points where relevant.
+### 2. Core Concepts & Steps
+[Key mechanisms, formulas, or bullet points]
+
+### 3. Concrete Example
+[Practical engineering or code example]
+
+### 4. Viva / Exam Tip
+[1 high-yield point for exams]
 """
-    answer = ask_ollama(prompt, system="You are the StudyMate AI Doubt Solver Agent for RCPIT students.")
-    return jsonify({"answer": answer, "grounding": grounding, "mode": mode})
+    answer = ask_ollama(prompt, system=f"You are the StudyMate Academic AI Assistant for {subject}.")
+    return jsonify({"answer": answer, "grounding": grounding, "mode": mode}), 200
 
-# Agent 2: Study Planner Agent
 @app.route("/api/ai/study-plan", methods=["POST"])
-def generate_study_plan():
+@token_required
+def generate_study_plan(current_user):
     data = request.json or {}
-    subject = data.get("subject", "Engineering Subject")
+    subject = data.get("subject", "").strip()
+    branch = data.get("branch", current_user.get("branch", "AIML"))
     days = int(data.get("days", 5))
     hours = int(data.get("hours_per_day", 3))
     weak_topics = data.get("weak_topics", [])
-    weak_topics_str = ", ".join(weak_topics) if weak_topics else "Core units & PYQ practice"
+    
+    if not subject:
+        return jsonify({"error": "Subject is required to generate a targeted study plan"}), 400
 
-    prompt = """
-Generate an optimal {days}-day study timetable for f'{subject}' with {hours} study hours per day.
-Priority weak topics to cover: {weak_topics_str}.
+    weak_topics_str = ", ".join(weak_topics) if weak_topics else f"Core topics of {subject}"
 
-Respond in strict JSON format as an array of objects:
+    prompt = """Generate a focused {days}-day study plan EXCLUSIVELY for the engineering subject '{subject}' (Branch: {branch}).
+DO NOT include topics from unrelated subjects. Focus entirely on f'{subject}'.
+Student weak topics: {weak_topics_str}.
+Daily study time: {hours} hours.
+
+Return ONLY a valid JSON array of objects. No introductory or trailing text.
 [
-  {{"day": 1, "topic": "Topic Name", "hours": {hours}, "tasks": ["Task 1", "Task 2"]}}
+  {{"day": 1, "topic": f"Exact topic from {subject}", "hours": {hours}, "tasks": ["Read concept", "Solve 3 PYQs", "Formula summary"]}}
 ]
 """
-    raw_res = ask_ollama(prompt, system="You are the StudyMate AI Study Planner Agent. Return ONLY valid JSON array.")
+    raw_res = ask_ollama(prompt, system=f"You are an academic curriculum planner specialized strictly in {subject}. Return ONLY a JSON array.")
     try:
         start = raw_res.find('[')
         end = raw_res.rfind(']') + 1
         plan = json.loads(raw_res[start:end])
     except Exception:
         plan = [
-            {"day": i + 1, "topic": f"Unit {i + 1}: Key Fundamentals & Practice", "hours": hours, "tasks": ["Read lecture notes", "Solve 5 PYQs", "Review weak formulas"]}
+            {"day": i + 1, "topic": f"{subject} - Unit {i + 1} Foundations & PYQs", "hours": hours, "tasks": ["Review textbook notes", "Practice previous exam questions", "Summarize core definitions"]}
             for i in range(days)
         ]
-    return jsonify({"plan": plan, "subject": subject})
+    
+    study_plans_col.insert_one({
+        "student_email": current_user["email"],
+        "subject": subject,
+        "branch": branch,
+        "days": days,
+        "plan": plan,
+        "created_at": datetime.datetime.utcnow()
+    })
+    
+    return jsonify({"plan": plan, "subject": subject, "branch": branch}), 200
 
-# Agent 3: AI Test Generator Agent
 @app.route("/api/ai/generate-test", methods=["POST"])
-def generate_ai_test():
+@token_required
+def generate_ai_test(current_user):
     data = request.json or {}
     subject = data.get("subject", "Artificial Intelligence")
-    count = int(data.get("count", 3))
+    count = min(int(data.get("count", 5)), 10)
     difficulty = data.get("difficulty", "Medium")
 
-    prompt = """
-Generate {count} multiple choice questions (MCQs) for the subject f'{subject}' at f'{difficulty}' difficulty.
-Respond in strict JSON format as an array of objects:
+    prompt = """Generate {count} multiple choice questions strictly for the engineering subject '{subject}' at {difficulty} difficulty level.
+Return ONLY a valid JSON array. Each object must have:
+- "question": string
+- "options": array of 4 distinct string choices
+- "correct_answer": exact string matching one option
+- "explanation": brief explanation
+
 [
-  {{"question": "What is...", "options": ["A", "B", "C", "D"], "correct_answer": "A", "explanation": "Why..."}}
+  {{"question": "What is...", "options": ["Choice A", "Choice B", "Choice C", "Choice D"], "correct_answer": "Choice A", "explanation": "Explanation here"}}
 ]
 """
-    raw_res = ask_ollama(prompt, system="You are the StudyMate AI Test Generator Agent. Return ONLY valid JSON array.")
+    raw_res = ask_ollama(prompt, system="You are the StudyMate Technical Test Generator. Return ONLY a valid JSON array.")
     try:
         start = raw_res.find('[')
         end = raw_res.rfind(']') + 1
@@ -207,18 +334,18 @@ Respond in strict JSON format as an array of objects:
     except Exception:
         test_questions = [
             {
-                "question": f"Sample Generated Question on {subject}",
-                "options": ["Option A", "Option B", "Option C", "Option D"],
-                "correct_answer": "Option A",
-                "explanation": "Standard textbook definition."
+                "question": f"Key concept in {subject}",
+                "options": ["Definition 1", "Definition 2", "Definition 3", "Definition 4"],
+                "correct_answer": "Definition 1",
+                "explanation": f"Fundamental property of {subject}."
             }
         ]
-    return jsonify({"questions": test_questions})
+    return jsonify({"questions": test_questions, "subject": subject}), 200
 
-# Agent 4: Recommendation Agent
 @app.route("/api/ai/recommendations", methods=["GET"])
-def get_recommendations():
-    email = request.args.get("email")
+@token_required
+def get_recommendations(current_user):
+    email = current_user["email"]
     last_attempt = attempts_col.find_one({"student_email": email}, sort=[("submitted_at", -1)])
     weak_topics = last_attempt.get("weak_topics", []) if last_attempt else []
     
@@ -227,65 +354,77 @@ def get_recommendations():
         for t in weak_topics:
             recommendations.append({
                 "topic": t,
-                "action": f"Review {t} lecture notes and attempt 10 practice questions",
+                "action": f"Review {t} reference notes and complete 5 mock practice questions",
                 "priority": "High"
             })
     else:
         recommendations.append({
-            "topic": "General Syllabus",
-            "action": "Great performance! Continue with Mock Placement Tests and PYQ solving.",
+            "topic": "Current Semester Units",
+            "action": "Solid performance across modules! Continue solving End-Semester PYQs.",
             "priority": "Normal"
         })
-    return jsonify({"recommendations": recommendations, "weak_topics": weak_topics})
+    return jsonify({"recommendations": recommendations, "weak_topics": weak_topics}), 200
 
-# --- APTITUDE & EXAM EVALUATION ---
-@app.route("/api/aptitude/questions", methods=["GET", "POST"])
-def handle_aptitude_questions():
-    if request.method == "POST":
-        data = request.json or {}
-        aptitude_q_col.insert_one(data)
-        return jsonify({"message": "Question added"}), 201
-
+@app.route("/api/aptitude/questions", methods=["GET"])
+def get_aptitude_questions():
     qs = list(aptitude_q_col.find())
     for q in qs:
         q["_id"] = str(q["_id"])
-    return jsonify(qs)
+        q.pop("correct_answer", None)
+        q.pop("explanation", None)
+    return jsonify(qs), 200
 
 @app.route("/api/tests/submit", methods=["POST"])
-def submit_exam():
+@token_required
+def submit_exam(current_user):
     data = request.json or {}
     answers = data.get("answers", {})
-    email = data.get("student_email", "")
 
     all_qs = list(aptitude_q_col.find())
     score = 0
     total = len(all_qs)
     weak_topics = []
+    detailed_results = []
 
     for q in all_qs:
         qid = str(q["_id"])
         chosen = answers.get(qid)
         correct = q.get("correct_answer")
-        if chosen == correct:
+        is_correct = (chosen == correct)
+        
+        if is_correct:
             score += 1
         elif chosen is not None:
             weak_topics.append(q.get("topic", "General"))
 
+        detailed_results.append({
+            "id": qid,
+            "question": q.get("question"),
+            "chosen": chosen,
+            "correct_answer": correct,
+            "is_correct": is_correct,
+            "explanation": q.get("explanation", "")
+        })
+
     accuracy = round((score / total * 100), 2) if total > 0 else 0
     attempt = {
-        "student_email": email,
+        "student_email": current_user["email"],
+        "student_name": current_user["name"],
         "score": score,
         "total": total,
         "accuracy": accuracy,
         "weak_topics": list(set(weak_topics)),
         "submitted_at": datetime.datetime.utcnow()
     }
-    attempts_col.insert_one(attempt)
+    inserted = attempts_col.insert_one(attempt)
+    attempt["_id"] = str(inserted.inserted_id)
+    attempt["detailed_results"] = detailed_results
     return jsonify(attempt), 200
 
-# --- ADMIN DASHBOARD ANALYTICS ---
 @app.route("/api/admin/stats", methods=["GET"])
-def admin_stats():
+@token_required
+@role_required("admin")
+def admin_stats(current_user):
     return jsonify({
         "total_students": users_col.count_documents({"role": "student"}),
         "total_notes": notes_col.count_documents({}),
@@ -293,17 +432,19 @@ def admin_stats():
         "total_pyqs": pyq_col.count_documents({}),
         "total_questions": aptitude_q_col.count_documents({}),
         "total_test_attempts": attempts_col.count_documents({})
-    })
+    }), 200
 
 @app.route("/api/admin/students", methods=["GET"])
-def admin_student_list():
+@token_required
+@role_required("admin")
+def admin_student_list(current_user):
     students = list(users_col.find({"role": "student"}, {"password_hash": 0}))
     for s in students:
         s["_id"] = str(s["_id"])
         last = attempts_col.find_one({"student_email": s["email"]}, sort=[("submitted_at", -1)])
         s["last_score"] = f"{last['score']}/{last['total']}" if last else "Not Attempted"
         s["accuracy"] = f"{last['accuracy']}%" if last else "N/A"
-    return jsonify(students)
+    return jsonify(students), 200
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=False, use_reloader=False)
+    app.run(port=5000, debug=True)
