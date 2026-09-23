@@ -13,6 +13,7 @@ import jwt
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
+# MongoDB Connection
 client = MongoClient("mongodb://localhost:27017/")
 db = client["studymate_rcpit"]
 
@@ -26,9 +27,10 @@ study_plans_col = db["study_plans"]
 projects_col = db["projects"]
 books_col = db["books"]
 
-JWT_SECRET = os.getenv("JWT_SECRET", "rcpit_super_secret_jwt_key_2026")
+JWT_SECRET = "rcpit_super_secret_jwt_key_2026_production_safe_string_32chars"
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
 
+# --- AUTH DECORATORS ---
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -65,6 +67,7 @@ def role_required(required_role):
         return decorated
     return decorator
 
+# --- LOCAL OLLAMA CALLER ---
 def ask_ollama(prompt, system="You are an expert engineering professor at R. C. Patel Institute of Technology (RCPIT), Shirpur."):
     try:
         res = requests.post(
@@ -89,6 +92,7 @@ def ask_ollama(prompt, system="You are an expert engineering professor at R. C. 
 
     return "Could not connect to Ollama. Make sure Ollama is running at http://127.0.0.1:11434."
 
+# --- AUTHENTICATION APIS ---
 @app.route("/api/auth/register", methods=["POST"])
 def register():
     data = request.json or {}
@@ -188,6 +192,65 @@ def get_current_user_profile(current_user):
         }
     }), 200
 
+# --- STUDENT DASHBOARD ANALYTICS ---
+@app.route("/api/student/dashboard-stats", methods=["GET"])
+@token_required
+def get_student_dashboard_stats(current_user):
+    email = current_user["email"]
+    
+    attempts = list(attempts_col.find({"student_email": email}).sort("submitted_at", -1))
+    total_tests = len(attempts)
+    
+    avg_accuracy = 0
+    weak_topics_set = set()
+    performance_history = []
+    
+    if attempts:
+        total_accuracy = sum(a.get("accuracy", 0) for a in attempts)
+        avg_accuracy = round(total_accuracy / total_tests, 1)
+        for a in attempts:
+            for wt in a.get("weak_topics", []):
+                weak_topics_set.add(wt)
+            performance_history.append({
+                "date": a.get("submitted_at").strftime("%d %b") if a.get("submitted_at") else "Test",
+                "accuracy": a.get("accuracy", 0),
+                "score": a.get("score", 0)
+            })
+        performance_history.reverse()
+    else:
+        performance_history = [
+            {"date": "Baseline", "accuracy": 65, "score": 3}
+        ]
+
+    subjects_tracked = [
+        {"subject": "Machine Learning", "progress": 72, "units_completed": 4, "total_units": 6},
+        {"subject": "Database Systems", "progress": 85, "units_completed": 5, "total_units": 6},
+        {"subject": "Algorithms & DAA", "progress": 60, "units_completed": 3, "total_units": 5},
+        {"subject": "AI Fundamentals", "progress": 90, "units_completed": 5, "total_units": 5}
+    ]
+
+    tasks = [
+        {"id": 1, "title": "Review Decision Trees & SVM", "subject": "Machine Learning", "due": "Tomorrow", "priority": "High"},
+        {"id": 2, "title": "Solve 2025 DBMS End-Sem PYQ", "subject": "Database Systems", "due": "In 2 days", "priority": "Medium"},
+        {"id": 3, "title": "Attempt QuickSort & Time Complexity Quiz", "subject": "Algorithms & DAA", "due": "In 3 days", "priority": "High"}
+    ]
+
+    weak_topics_list = list(weak_topics_set) if weak_topics_set else ["Percentages", "Normalization", "QuickSort Complexity"]
+
+    return jsonify({
+        "stats": {
+            "total_tests": total_tests,
+            "avg_accuracy": avg_accuracy,
+            "total_subjects": len(subjects_tracked),
+            "weak_topics_count": len(weak_topics_list)
+        },
+        "performance_history": performance_history,
+        "subject_progress": subjects_tracked,
+        "weak_topics": weak_topics_list,
+        "tasks": tasks
+    }), 200
+
+# --- ACADEMIC RESOURCES (Syllabus, Notes, PYQs) ---
 @app.route("/api/resources", methods=["GET"])
 def get_resources():
     res_type = request.args.get("type", "notes")
@@ -222,6 +285,7 @@ def add_resource(current_user):
     inserted = col.insert_one(data)
     return jsonify({"message": "Resource saved successfully", "id": str(inserted.inserted_id)}), 201
 
+# --- MULTI-AGENT AI SYSTEM ---
 @app.route("/api/ai/doubt", methods=["POST"])
 @token_required
 def solve_doubt(current_user):
@@ -365,6 +429,7 @@ def get_recommendations(current_user):
         })
     return jsonify({"recommendations": recommendations, "weak_topics": weak_topics}), 200
 
+# --- APTITUDE & EXAM EVALUATION ---
 @app.route("/api/aptitude/questions", methods=["GET"])
 def get_aptitude_questions():
     qs = list(aptitude_q_col.find())
@@ -421,6 +486,7 @@ def submit_exam(current_user):
     attempt["detailed_results"] = detailed_results
     return jsonify(attempt), 200
 
+# --- ADMIN DASHBOARD ANALYTICS ---
 @app.route("/api/admin/stats", methods=["GET"])
 @token_required
 @role_required("admin")
