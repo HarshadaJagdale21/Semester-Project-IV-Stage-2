@@ -142,14 +142,14 @@ def solve_doubt():
     grounding = "RCPIT College Repository" if notes_text else "Standard Engineering Curriculum"
 
     prompt = """
-    Context from College Repository: {notes_text if notes_text else 'Standard Syllabus'}
-    Subject: {subject}
-    Format Mode: {mode}
+Context from College Repository: {notes_text if notes_text else 'Standard Syllabus'}
+Subject: {subject}
+Format Mode: {mode}
 
-    Question: {question}
+Question: {question}
 
-    Provide a clear, authoritative response. State key formulas, algorithmic steps, or bullet points where relevant.
-    """
+Provide a clear, authoritative response. State key formulas, algorithmic steps, or bullet points where relevant.
+"""
     answer = ask_ollama(prompt, system="You are the StudyMate AI Doubt Solver Agent for RCPIT students.")
     return jsonify({"answer": answer, "grounding": grounding, "mode": mode})
 
@@ -161,16 +161,17 @@ def generate_study_plan():
     days = int(data.get("days", 5))
     hours = int(data.get("hours_per_day", 3))
     weak_topics = data.get("weak_topics", [])
+    weak_topics_str = ", ".join(weak_topics) if weak_topics else "Core units & PYQ practice"
 
     prompt = """
-    Generate an optimal {days}-day study timetable for f'{subject}' with {hours} study hours per day.
-    Priority weak topics to cover: {', '.join(weak_topics) if weak_topics else 'Core units & PYQ practice'}.
-    
-    Respond in strict JSON format as an array of objects:
-    [
-      {{"day": 1, "topic": "Topic Name", "hours": {hours}, "tasks": ["Task 1", "Task 2"]}}
-    ]
-    """
+Generate an optimal {days}-day study timetable for f'{subject}' with {hours} study hours per day.
+Priority weak topics to cover: {weak_topics_str}.
+
+Respond in strict JSON format as an array of objects:
+[
+  {{"day": 1, "topic": "Topic Name", "hours": {hours}, "tasks": ["Task 1", "Task 2"]}}
+]
+"""
     raw_res = ask_ollama(prompt, system="You are the StudyMate AI Study Planner Agent. Return ONLY valid JSON array.")
     try:
         start = raw_res.find('[')
@@ -192,12 +193,12 @@ def generate_ai_test():
     difficulty = data.get("difficulty", "Medium")
 
     prompt = """
-    Generate {count} multiple choice questions (MCQs) for the subject f'{subject}' at f'{difficulty}' difficulty.
-    Respond in strict JSON format as an array of objects:
-    [
-      {{"question": "What is...", "options": ["A", "B", "C", "D"], "correct_answer": "A", "explanation": "Why..."}}
-    ]
-    """
+Generate {count} multiple choice questions (MCQs) for the subject f'{subject}' at f'{difficulty}' difficulty.
+Respond in strict JSON format as an array of objects:
+[
+  {{"question": "What is...", "options": ["A", "B", "C", "D"], "correct_answer": "A", "explanation": "Why..."}}
+]
+"""
     raw_res = ask_ollama(prompt, system="You are the StudyMate AI Test Generator Agent. Return ONLY valid JSON array.")
     try:
         start = raw_res.find('[')
@@ -299,7 +300,6 @@ def admin_student_list():
     students = list(users_col.find({"role": "student"}, {"password_hash": 0}))
     for s in students:
         s["_id"] = str(s["_id"])
-        # Fetch last attempt
         last = attempts_col.find_one({"student_email": s["email"]}, sort=[("submitted_at", -1)])
         s["last_score"] = f"{last['score']}/{last['total']}" if last else "Not Attempted"
         s["accuracy"] = f"{last['accuracy']}%" if last else "N/A"
