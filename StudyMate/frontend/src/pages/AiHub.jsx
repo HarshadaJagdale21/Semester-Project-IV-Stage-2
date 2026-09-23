@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import api from '../api/client';
 import { DashboardLayout } from '../layouts/DashboardLayout';
-import { Brain, Sparkles, Send, Calendar, CheckSquare, Loader2 } from 'lucide-react';
+import { Brain, Sparkles, Send, Calendar, CheckSquare, Loader2, BookOpen, AlertCircle } from 'lucide-react';
 
 export const AiHub = () => {
   const [activeTab, setActiveTab] = useState('doubt');
 
-  // Doubt Solver State
+  // Agent 1: Doubt Solver
   const [question, setQuestion] = useState('');
   const [subject, setSubject] = useState('Machine Learning');
   const [mode, setMode] = useState('Detailed Explanation');
   const [doubtResponse, setDoubtResponse] = useState(null);
   const [doubtLoading, setDoubtLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  // Study Planner State
+  // Agent 2: Study Planner
   const [planSubject, setPlanSubject] = useState('Machine Learning');
   const [days, setDays] = useState(5);
   const [hours, setHours] = useState(3);
@@ -24,11 +25,12 @@ export const AiHub = () => {
     e.preventDefault();
     if (!question.trim()) return;
     setDoubtLoading(true);
+    setErrorMsg('');
     try {
       const res = await api.post('/ai/doubt', { question, subject, mode });
       setDoubtResponse(res.data);
     } catch (err) {
-      alert('Failed to connect to AI engine. Check terminal.');
+      setErrorMsg(err.response?.data?.error || 'AI service error. Please ensure backend is running.');
     } finally {
       setDoubtLoading(false);
     }
@@ -37,11 +39,12 @@ export const AiHub = () => {
   const handleGeneratePlan = async (e) => {
     e.preventDefault();
     setPlanLoading(true);
+    setErrorMsg('');
     try {
       const res = await api.post('/ai/study-plan', { subject: planSubject, days, hours_per_day: hours });
       setPlanResponse(res.data.plan);
     } catch (err) {
-      alert('Plan generation failed. Check terminal.');
+      setErrorMsg('Failed to generate timetable. Check terminal logs.');
     } finally {
       setPlanLoading(false);
     }
@@ -49,71 +52,90 @@ export const AiHub = () => {
 
   return (
     <DashboardLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Multi-Agent Academic AI Hub</h1>
-        <p className="text-xs text-slate-500 mt-1">Autonomous agents grounded in your RCPIT syllabus</p>
+      {/* Header Banner */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1">
+          <Sparkles className="h-4 w-4" /> Multi-Agent Intelligence Engine
+        </div>
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Academic AI Hub</h1>
+        <p className="text-sm text-slate-500 mt-1">Autonomous agents grounded in R. C. Patel Institute of Technology engineering syllabi.</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-slate-200 mb-6">
+      {errorMsg && (
+        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* Modern Tabs */}
+      <div className="flex gap-3 border-b border-slate-200 mb-8 pb-1">
         <button
           onClick={() => setActiveTab('doubt')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'doubt' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+          className={`pb-3 px-2 text-xs font-bold flex items-center gap-2 border-b-2 transition-all ${
+            activeTab === 'doubt'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <Brain className="h-4 w-4" /> Agent 1: RAG Doubt Solver
         </button>
         <button
           onClick={() => setActiveTab('planner')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'planner' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+          className={`pb-3 px-2 text-xs font-bold flex items-center gap-2 border-b-2 transition-all ${
+            activeTab === 'planner'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <Calendar className="h-4 w-4" /> Agent 2: Subject Study Planner
         </button>
       </div>
 
-      {/* TAB 1: Doubt Solver */}
+      {/* TAB 1: RAG Doubt Solver */}
       {activeTab === 'doubt' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900 mb-4">Submit Academic Doubt</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Query Form */}
+          <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h2 className="text-base font-bold text-slate-900 mb-1">Ask Academic Doubt</h2>
+            <p className="text-xs text-slate-500 mb-5">Grounds answers in department notes & syllabi.</p>
+
             <form onSubmit={handleAskDoubt} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Target Subject</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Engineering Subject</label>
                 <select
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 p-2.5 text-xs focus:border-indigo-600"
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium focus:border-indigo-600 focus:outline-none bg-slate-50"
                 >
                   <option value="Machine Learning">Machine Learning</option>
                   <option value="Database Systems">Database Systems</option>
                   <option value="Algorithms & DAA">Algorithms & DAA</option>
+                  <option value="AI Fundamentals">AI Fundamentals</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Response Mode</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Response Style</label>
                 <select
                   value={mode}
                   onChange={(e) => setMode(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 p-2.5 text-xs focus:border-indigo-600"
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium focus:border-indigo-600 focus:outline-none bg-slate-50"
                 >
-                  <option value="Detailed Explanation">Detailed Explanation</option>
-                  <option value="Short Viva Answer">Short Viva Answer</option>
-                  <option value="Step-by-Step Numerical">Step-by-Step Numerical</option>
+                  <option value="Detailed Explanation">Detailed Explanation (Exam Oriented)</option>
+                  <option value="Short Viva Answer">Short Viva Answer (Oral Prep)</option>
+                  <option value="Step-by-Step Numerical">Step-by-Step Numerical & Derivation</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Your Question</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Question / Concept</label>
                 <textarea
-                  rows={4}
+                  rows={5}
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="e.g. Explain how Backpropagation minimizes error in Neural Networks..."
-                  className="w-full rounded-lg border border-slate-200 p-3 text-xs focus:border-indigo-600 focus:outline-none"
+                  placeholder="e.g. Explain how Backpropagation calculates gradients using the chain rule..."
+                  className="w-full rounded-xl border border-slate-200 p-3 text-xs font-medium focus:border-indigo-600 focus:outline-none bg-slate-50 leading-relaxed"
                   required
                 />
               </div>
@@ -121,29 +143,37 @@ export const AiHub = () => {
               <button
                 type="submit"
                 disabled={doubtLoading}
-                className="w-full bg-indigo-600 text-white text-xs font-bold py-2.5 rounded-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {doubtLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {doubtLoading ? 'Retrieving & Generating...' : 'Ask AI Agent'}
+                {doubtLoading ? 'Retrieving Knowledge Base...' : 'Solve with AI Agent'}
               </button>
             </form>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-            <h2 className="text-base font-bold text-slate-900 mb-2">Agent Answer & Grounding</h2>
+          {/* Answer Output */}
+          <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[420px]">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Agent Output</h2>
+                <p className="text-xs text-slate-500">Structured academic breakdown</p>
+              </div>
+              {doubtResponse && (
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  {doubtResponse.grounding}
+                </span>
+              )}
+            </div>
+
             {doubtResponse ? (
-              <div className="flex-1 overflow-y-auto">
-                <div className="mb-3 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Grounding: {doubtResponse.grounding}
-                </div>
-                <div className="prose prose-sm text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
-                  {doubtResponse.answer}
-                </div>
+              <div className="flex-1 overflow-y-auto space-y-4 pr-1 text-slate-800 text-xs leading-relaxed whitespace-pre-wrap font-mono bg-slate-50 p-4 rounded-xl border border-slate-200">
+                {doubtResponse.answer}
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-xs">
-                <Sparkles className="h-8 w-8 mb-2 text-slate-300" />
-                Ask a question to trigger the RAG pipeline.
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-xs text-center p-8">
+                <Brain className="h-10 w-10 mb-3 text-slate-300" />
+                <p className="font-semibold text-slate-600">No query submitted yet</p>
+                <p className="text-slate-400 mt-1 max-w-xs">Ask a question to invoke the RAG pipeline with RCPIT department context.</p>
               </div>
             )}
           </div>
@@ -154,49 +184,52 @@ export const AiHub = () => {
       {activeTab === 'planner' && (
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900 mb-4">Generate Personalized Timetable</h2>
+            <h2 className="text-base font-bold text-slate-900 mb-1">Generate Timetable</h2>
+            <p className="text-xs text-slate-500 mb-5">Subject-locked planner tailored to your study bandwidth.</p>
+
             <form onSubmit={handleGeneratePlan} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Subject</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Subject</label>
                 <select
                   value={planSubject}
                   onChange={(e) => setPlanSubject(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 p-2 text-xs focus:border-indigo-600"
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-slate-50 font-medium"
                 >
                   <option value="Machine Learning">Machine Learning</option>
                   <option value="Database Systems">Database Systems</option>
                   <option value="Algorithms & DAA">Algorithms & DAA</option>
+                  <option value="AI Fundamentals">AI Fundamentals</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Available Days</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Available Days</label>
                 <input
                   type="number"
                   min="2"
                   max="14"
                   value={days}
                   onChange={(e) => setDays(Number(e.target.value))}
-                  className="w-full rounded-lg border border-slate-200 p-2 text-xs"
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-slate-50 font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Hours / Day</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Hours / Day</label>
                 <input
                   type="number"
                   min="1"
-                  max="8"
+                  max="10"
                   value={hours}
                   onChange={(e) => setHours(Number(e.target.value))}
-                  className="w-full rounded-lg border border-slate-200 p-2 text-xs"
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-slate-50 font-medium"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={planLoading}
-                className="bg-indigo-600 text-white text-xs font-bold py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {planLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
                 {planLoading ? 'Planning...' : 'Generate Plan'}
@@ -205,24 +238,29 @@ export const AiHub = () => {
           </div>
 
           {planResponse && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {planResponse.map((dayItem, idx) => (
-                <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
-                      Day {dayItem.day}
-                    </span>
-                    <span className="text-xs text-slate-500">{dayItem.hours} Hours</span>
+                <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        Day {dayItem.day}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-500">{dayItem.hours} Study Hours</span>
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-900 mb-3">{dayItem.topic}</h3>
+                    <ul className="space-y-2 mb-4">
+                      {dayItem.tasks.map((task, tIdx) => (
+                        <li key={tIdx} className="text-xs text-slate-600 flex items-start gap-2">
+                          <CheckSquare className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
+                          <span>{task}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <h3 className="text-sm font-bold text-slate-800 mb-2">{dayItem.topic}</h3>
-                  <ul className="space-y-1.5">
-                    {dayItem.tasks.map((task, tIdx) => (
-                      <li key={tIdx} className="text-xs text-slate-600 flex items-start gap-2">
-                        <CheckSquare className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
-                        <span>{task}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="pt-3 border-t border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    Target: End-Sem Unit Mastery
+                  </div>
                 </div>
               ))}
             </div>
