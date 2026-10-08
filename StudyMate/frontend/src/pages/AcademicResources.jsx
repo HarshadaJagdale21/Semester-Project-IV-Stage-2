@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/client';
 import { DashboardLayout } from '../layouts/DashboardLayout';
-import { 
-  BookOpen, 
-  Search, 
-  FileText, 
-  X, 
+import { BASE_URL } from '../api/client';
+import {
+  BookOpen,
+  Search,
+  FileText,
+  X,
   GraduationCap
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import { useAuth } from '../context/AuthContext';
 
 export const AcademicResources = () => {
+  const { user } = useAuth();
   const [resources, setResources] = useState([]);
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [branch, setBranch] = useState('AIML');
@@ -71,11 +75,10 @@ export const AcademicResources = () => {
               <button
                 key={tab.id}
                 onClick={() => { setType(tab.id); setSubject('ALL'); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  type === tab.id
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${type === tab.id
                     ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
                     : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -95,38 +98,44 @@ export const AcademicResources = () => {
         </div>
 
         {/* Cascading Filter Selectors */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Branch</label>
-            <select
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 p-2 text-xs bg-slate-50 font-medium focus:border-indigo-600 focus:outline-none"
-            >
-              <option value="AIML">AIML (AI & Machine Learning)</option>
-              <option value="CSE">Computer Engineering (CSE)</option>
-              <option value="DS">Data Science (DS)</option>
-              <option value="IT">Information Technology (IT)</option>
-              <option value="ALL">All Departments</option>
-            </select>
-          </div>
+        <div className={`grid grid-cols-1 ${user?.role === 'admin' ? 'sm:grid-cols-3' : 'sm:grid-cols-1'} gap-3`}>
+          {user?.role === 'admin' && (
+            <>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Branch</label>
+                <select
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 p-2 text-xs bg-slate-50 font-medium focus:border-indigo-600 focus:outline-none"
+                >
+                  <option value="AIML">AIML (AI & Machine Learning)</option>
+                  <option value="CSE">Computer Engineering (CSE)</option>
+                  <option value="DS">Data Science (DS)</option>
+                  <option value="IT">Information Technology (IT)</option>
+                  <option value="ALL">All Departments</option>
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Semester</label>
-            <select
-              value={semester}
-              onChange={(e) => setSemester(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 p-2 text-xs bg-slate-50 font-medium focus:border-indigo-600 focus:outline-none"
-            >
-              <option value="Semester 8">Semester 8 (Final Year)</option>
-              <option value="Semester 7">Semester 7</option>
-              <option value="Semester 6">Semester 6</option>
-              <option value="Semester 5">Semester 5</option>
-              <option value="Semester 4">Semester 4</option>
-              <option value="Semester 3">Semester 3</option>
-              <option value="ALL">All Semesters</option>
-            </select>
-          </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Semester</label>
+                <select
+                  value={semester}
+                  onChange={(e) => setSemester(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 p-2 text-xs bg-slate-50 font-medium focus:border-indigo-600 focus:outline-none"
+                >
+                  <option value="Semester 8">Semester 8 (Final Year)</option>
+                  <option value="Semester 7">Semester 7</option>
+                  <option value="Semester 6">Semester 6</option>
+                  <option value="Semester 5">Semester 5</option>
+                  <option value="Semester 4">Semester 4</option>
+                  <option value="Semester 3">Semester 3</option>
+                  <option value="Semester 2">Semester 2</option>
+                  <option value="Semester 1">Semester 1</option>
+                  <option value="ALL">All Semesters</option>
+                </select>
+              </div>
+            </>
+          )}
 
           <div>
             <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Filter by Subject</label>
@@ -186,12 +195,53 @@ export const AcademicResources = () => {
                 <span className="text-[11px] font-medium text-slate-400">
                   {item.unit || item.semester}
                 </span>
-                <button
-                  onClick={() => setActiveModalDoc(item)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 text-xs font-bold transition flex items-center gap-1.5"
-                >
-                  <FileText className="h-3.5 w-3.5" /> Read Content
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (item.file_type?.toLowerCase() === 'ppt') {
+                        const element = document.createElement("a");
+                        const file = new Blob([item.content || item.preview], { type: 'text/plain' });
+                        element.href = URL.createObjectURL(file);
+                        element.download = `${item.title.replace(/\s+/g, '_')}.ppt`;
+                        document.body.appendChild(element);
+                        element.click();
+                        document.body.removeChild(element);
+                      } else if (item.file_data) {
+                        const binaryString = window.atob(item.file_data);
+                        const bytes = new Uint8Array(binaryString.length);
+                        for (let i = 0; i < binaryString.length; i++) {
+                          bytes[i] = binaryString.charCodeAt(i);
+                        }
+                        const blob = new Blob([bytes], { type: 'application/pdf' });
+                        const element = document.createElement("a");
+                        element.href = URL.createObjectURL(blob);
+                        element.download = `${item.title.replace(/\s+/g, '_')}.pdf`;
+                        document.body.appendChild(element);
+                        element.click();
+                        document.body.removeChild(element);
+                      } else {
+                        const doc = new jsPDF();
+                        doc.setFontSize(16);
+                        doc.text(item.title || 'Academic Resource', 20, 20);
+                        doc.setFontSize(12);
+                        const splitText = doc.splitTextToSize(item.content || item.preview || '', 170);
+                        doc.text(splitText, 20, 30);
+                        doc.save(`${item.title.replace(/\s+/g, '_')}.pdf`);
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center gap-1.5 border border-emerald-100 hover:border-emerald-200"
+                    title="Download File"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Download
+                  </button>
+                  <button
+                    onClick={() => setActiveModalDoc(item)}
+                    className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 text-xs font-bold transition flex items-center gap-1.5"
+                  >
+                    <FileText className="h-3.5 w-3.5" /> Read
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -223,11 +273,57 @@ export const AcademicResources = () => {
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1 text-xs text-slate-700 leading-relaxed font-mono whitespace-pre-wrap bg-slate-50/50">
-              {activeModalDoc.content || 'No text extracted for this document.'}
+            <div className="flex-1 overflow-hidden bg-slate-100 flex flex-col relative">
+              {activeModalDoc.file_url ? (
+                <iframe
+                  src={`${BASE_URL}${activeModalDoc.file_url}`}
+                  className="w-full h-[60vh] border-0"
+                  title="PDF Viewer"
+                />
+              ) : activeModalDoc.file_name && activeModalDoc.file_type === 'PDF' ? (
+                <iframe
+                  src={`${BASE_URL}/api/files/${encodeURIComponent(activeModalDoc.file_name)}`}
+                  className="w-full h-[60vh] border-0"
+                  title="PDF Viewer"
+                />
+              ) : activeModalDoc.file_name ? (
+                <div className="flex flex-col items-center justify-center h-64 text-center">
+                  <FileText className="h-12 w-12 text-slate-300 mb-3" />
+                  <p className="text-sm font-bold text-slate-700">Preview not available for this file type.</p>
+                  <a
+                    href={`${BASE_URL}/api/files/${encodeURIComponent(activeModalDoc.file_name)}`}
+                    download
+                    className="mt-4 px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg text-sm"
+                  >
+                    Download File
+                  </a>
+                </div>
+              ) : (
+                <div className="p-6 overflow-y-auto h-64 text-xs text-slate-700 leading-relaxed font-mono whitespace-pre-wrap">
+                  {activeModalDoc.content || 'No text extracted for this document.'}
+                </div>
+              )}
             </div>
 
-            <div className="p-4 border-t border-slate-100 bg-white flex justify-end">
+            <div className="p-4 border-t border-slate-100 bg-white flex justify-end gap-3">
+              {activeModalDoc.file_url ? (
+                <a
+                  href={`${BASE_URL}${activeModalDoc.file_url}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition"
+                >
+                  Download Original File
+                </a>
+              ) : activeModalDoc.file_name && (
+                <a
+                  href={`${BASE_URL}/api/files/${encodeURIComponent(activeModalDoc.file_name)}`}
+                  download
+                  className="px-4 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition"
+                >
+                  Download Original File
+                </a>
+              )}
               <button
                 onClick={() => setActiveModalDoc(null)}
                 className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"

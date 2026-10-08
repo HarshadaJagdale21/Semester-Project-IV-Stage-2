@@ -1,164 +1,103 @@
 import os
-import sys
 import datetime
-from pathlib import Path
+import re
 from pymongo import MongoClient
-from pypdf import PdfReader
-import docx
-from pptx import Presentation
 
-# MongoDB Connection
 client = MongoClient("mongodb://localhost:27017/")
 db = client["studymate_rcpit"]
-notes_col = db["notes"]
-syllabus_col = db["syllabus"]
 
-def extract_from_pdf(file_path):
-    text = ""
-    try:
-        reader = PdfReader(file_path)
-        for page in reader.pages:
-            t = page.extract_text()
-            if t:
-                text += t + "\n"
-    except Exception as e:
-        print(f"  [!] PDF read issue in {file_path.name}: {e}")
-    return text.strip()
+# WIPE OUT MOCK SYLLABUS
+db.syllabus.delete_many({})
 
-def extract_from_docx(file_path):
-    text = ""
-    try:
-        doc = docx.Document(file_path)
-        for p in doc.paragraphs:
-            if p.text:
-                text += p.text + "\n"
-    except Exception as e:
-        print(f"  [!] DOCX read issue in {file_path.name}: {e}")
-    return text.strip()
+dataset_path = r"c:\Users\harsh\StudyMate\dataset_unzipped\dataset"
 
-def extract_from_pptx(file_path):
-    text = ""
-    try:
-        prs = Presentation(file_path)
-        for slide in prs.slides:
-            for shape in slide.shapes:
-                if hasattr(shape, "text") and shape.text:
-                    text += shape.text + "\n"
-    except Exception as e:
-        print(f"  [!] PPTX read issue in {file_path.name}: {e}")
-    return text.strip()
-
-def extract_content(file_path):
-    ext = file_path.suffix.lower()
-    if ext == ".pdf":
-        return extract_from_pdf(file_path)
-    elif ext in [".docx", ".doc"]:
-        return extract_from_docx(file_path)
-    elif ext in [".pptx", ".ppt"]:
-        return extract_from_pptx(file_path)
-    elif ext in [".txt", ".md"]:
-        try:
-            return file_path.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
-            return ""
-    return ""
-
-def guess_metadata(file_path, folder_path):
-    """Detects academic metadata from file name or parent directories."""
-    full_str = (str(file_path) + " " + file_path.stem).lower()
+def extract_semesters_from_text(text):
+    text_lower = text.lower()
     
-    # Branch
-    branch = "AIML"
-    if "cse" in full_str or "computer" in full_str:
-        branch = "CSE"
-    elif "ds" in full_str or "data science" in full_str:
-        branch = "DS"
-    elif "it" in full_str or "information" in full_str:
-        branch = "IT"
+    # Try to find specific "sem 1", "sem-2", etc.
+    sem_matches = re.findall(r'sem[-_\s]*(\d+)(?:\s*(?:&|and)\s*(\d+))?', text_lower)
+    semesters = set()
+    
+    if sem_matches:
+        for match in sem_matches:
+            for num in match:
+                if num and 1 <= int(num) <= 8:
+                    semesters.add(num)
+    
+    # If no "sem" keyword found but it has numbers, filter numbers 1-8
+    if not semesters:
+        all_nums = re.findall(r'\b[1-8]\b', text_lower)
+        for num in all_nums:
+            semesters.add(num)
+            
+    # Fallback to text
+    if not semesters:
+        if "first" in text_lower or "1st" in text_lower:
+            return ["1", "2"]
+        if "second" in text_lower or "2nd" in text_lower:
+            return ["3", "4"]
+        if "third" in text_lower or "3rd" in text_lower:
+            return ["5", "6"]
+        if "last" in text_lower or "fourth" in text_lower or "4th" in text_lower:
+            return ["7", "8"]
+            
+    return list(semesters)
 
-    # Semester
-    semester = "Semester 8"
-    for s in range(1, 9):
-        if f"sem {s}" in full_str or f"sem-{s}" in full_str or f"semester {s}" in full_str or f"sem{s}" in full_str:
-            semester = f"Semester {s}"
-            break
-
-    # Unit
-    unit = "Unit 1"
-    for u in range(1, 7):
-        if f"unit {u}" in full_str or f"unit-{u}" in full_str or f"unit{u}" in full_str or f"module {u}" in full_str:
-            unit = f"Unit {u}"
-            break
-
-    # Type detection: Syllabus or Notes
-    is_syllabus = "syllabus" in full_str or "curriculum" in full_str
-
-    # Subject detection
-    subject = "Deep Learning"
-    if "machine learning" in full_str or " ml " in f" {full_str} ":
-        subject = "Machine Learning"
-    elif "dbms" in full_str or "database" in full_str:
-        subject = "Database Systems"
-    elif "network" in full_str or " cn " in f" {full_str} ":
-        subject = "Computer Networks"
-    elif "nlp" in full_str or "natural language" in full_str:
-        subject = "Natural Language Processing"
-    elif "cloud" in full_str:
-        subject = "Cloud Computing"
-    else:
-        subject = file_path.parent.name if file_path.parent.name != folder_path.name else file_path.stem.replace("_", " ").title()
-
-    return branch, semester, unit, subject, is_syllabus
-
-def import_folder(target_folder_path):
-    folder = Path(target_folder_path)
-    if not folder.exists():
-        print(f"\n[ERROR] Folder does not exist: {target_folder_path}")
+def process_pdfs():
+    syllabus_dir = os.path.join(dataset_path, "syllabus")
+    if not os.path.exists(syllabus_dir):
+        print("Syllabus directory not found!")
         return
 
-    supported_extensions = {".pdf", ".docx", ".doc", ".pptx", ".ppt", ".txt"}
-    files_to_process = [p for p in folder.rglob("*") if p.suffix.lower() in supported_extensions]
+    count = 0
+    # Walk the directory tree to find all PDFs
+    for root, _, files in os.walk(syllabus_dir):
+        for filename in files:
+            if not filename.lower().endswith('.pdf'):
+                continue
+                
+            # Figure out branch and year from the path
+            rel_path = os.path.relpath(root, syllabus_dir)
+            path_parts = rel_path.split(os.sep)
+            
+            branch = path_parts[0] if len(path_parts) > 0 else "ALL"
+            year = path_parts[1] if len(path_parts) > 1 else "Unknown"
+            
+            # Extract year from filename if present
+            year_match = re.search(r'(20\d{2})', filename)
+            if year_match:
+                year = year_match.group(1)
+            
+            text_to_search = rel_path + " " + filename
+            semesters = extract_semesters_from_text(text_to_search)
+            
+            # Create the file URL mapped to our new Flask route
+            rel_url_path = os.path.relpath(os.path.join(root, filename), dataset_path).replace('\\', '/')
+            file_url = f"/dataset/{rel_url_path}"
+            
+            if not semesters:
+                semesters = ["1"] # Fallback if absolutely nothing is found
+                
+            for sem_num in semesters:
+                sem_str = f"Semester {sem_num}"
+                doc = {
+                    "title": f"{branch} {sem_str} Official Syllabus ({year})",
+                    "content": "Official PDF Syllabus document directly from the RCPIT dataset.",
+                    "preview": "Official PDF Syllabus document directly from the RCPIT dataset.",
+                    "branch": branch,
+                    "semester": sem_str,
+                    "subject": f"{branch} Core",
+                    "file_type": "PDF",
+                    "file_url": file_url,
+                    "year": year,
+                    "is_real_file": True,
+                    "created_at": datetime.datetime.utcnow()
+                }
+                db.syllabus.insert_one(doc)
+                count += 1
+                print(f"Inserted: {branch} - {sem_str} ({filename})")
 
-    if not files_to_process:
-        print(f"\n[!] No PDF, DOCX, or PPTX files found inside: {target_folder_path}")
-        return
-
-    print("\n=======================================================")
-    print(f"Found {len(files_to_process)} document(s) in {folder.name}")
-    print("Extracting text and indexing into MongoDB...")
-    print("=======================================================\n")
-
-    imported_count = 0
-    for idx, fpath in enumerate(files_to_process, 1):
-        content = extract_content(fpath)
-        if not content:
-            print(f"[{idx}/{len(files_to_process)}] ⚠️ Skipped (no text readable): {fpath.name}")
-            continue
-
-        branch, semester, unit, subject, is_syllabus = guess_metadata(fpath, folder)
-
-        doc = {
-            "title": fpath.stem.replace("_", " ").title(),
-            "file_name": fpath.name,
-            "branch": branch,
-            "semester": semester,
-            "subject": subject,
-            "unit": unit,
-            "content": content,
-            "char_count": len(content),
-            "file_type": fpath.suffix.lower().replace(".", "").upper(),
-            "created_at": datetime.datetime.utcnow()
-        }
-
-        target_collection = syllabus_col if is_syllabus else notes_col
-        target_collection.update_one({"title": doc["title"]}, {"$set": doc}, upsert=True)
-
-        category_label = "Syllabus" if is_syllabus else "Notes"
-        print(f"[{idx}/{len(files_to_process)}] ✅ Indexed to {category_label}: {doc['title']} ({subject} - {unit}) [{len(content)} chars]")
-        imported_count += 1
-
-    print(f"\n🎉 [COMPLETE] Successfully indexed {imported_count} documents into StudyMate MongoDB.")
+    print(f"Total authentic syllabus PDFs inserted via static URL: {count}")
 
 if __name__ == "__main__":
-    folder_input = input("\nEnter the full path to your dataset folder: ").strip().strip('"').strip("'")
-    import_folder(folder_input)
+    process_pdfs()

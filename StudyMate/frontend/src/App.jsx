@@ -10,6 +10,9 @@ import { AcademicResources } from './pages/AcademicResources';
 import { ProjectsHub } from './pages/ProjectsHub';
 import { BooksHub } from './pages/BooksHub';
 import { AdminDashboard } from './pages/AdminDashboard';
+import { AdminStudentProfile } from './pages/AdminStudentProfile';
+import { SyllabusManager } from './pages/SyllabusManager';
+import { ProfilePage } from './pages/ProfilePage';
 
 export default function App() {
   return (
@@ -60,6 +63,14 @@ export default function App() {
             }
           />
           <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/books"
             element={
               <ProtectedRoute requiredRole="student">
@@ -74,6 +85,22 @@ export default function App() {
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/students/:id"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminStudentProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/syllabus"
+            element={
+              <ProtectedRoute>
+                <SyllabusManager />
               </ProtectedRoute>
             }
           />

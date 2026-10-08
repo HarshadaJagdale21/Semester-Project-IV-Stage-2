@@ -46,16 +46,24 @@ export const Login = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-slate-100 p-4">
+    <div 
+      className="flex min-h-screen items-center justify-center p-4"
+      style={{
+        backgroundImage: 'linear-gradient(rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.8)), url("https://www.rcpit.ac.in/images/slider/rcpit-college-building.jpg")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl border border-slate-100">
         <div className="text-center mb-8">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
-            <GraduationCap className="h-8 w-8" />
+          <div className="mx-auto flex h-16 w-16 overflow-hidden items-center justify-center rounded-2xl bg-white shadow-lg shadow-indigo-100 border border-slate-100 p-2">
+            <img src="https://www.rcpit.ac.in/uploads/1599837268.png" alt="RCPIT" className="h-full w-full object-contain" />
           </div>
-          <h1 className="mt-4 text-2xl font-bold text-slate-900 tracking-tight">StudyMate</h1>
-          <p className="text-sm text-slate-500 mt-1">Multi-Agent Academic Assistance System</p>
-          <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
-            RCPIT Academic Portal 2026
+          <h1 className="mt-4 text-2xl font-bold text-slate-900 tracking-tight">RCPIT StudyMate</h1>
+          <p className="text-sm text-slate-500 mt-1">Shirpur Education Society's R. C. Patel Institute of Technology</p>
+          <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider">
+            An Autonomous Institute
           </div>
         </div>
 

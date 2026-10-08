@@ -17,10 +17,22 @@ export const AiHub = () => {
 
   // Agent 2: Study Planner
   const [planSubject, setPlanSubject] = useState('Deep Learning');
-  const [days, setDays] = useState(5);
+  
+  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const [examDate, setExamDate] = useState('');
   const [hours, setHours] = useState(3);
   const [planResponse, setPlanResponse] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
+
+
+  const calculateDays = () => {
+    if (!examDate) return 0;
+    const today = new Date(getTodayStr());
+    const exam = new Date(examDate);
+    const diffTime = exam - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
 
   const handleAskDoubt = async (e) => {
     e.preventDefault();
@@ -39,17 +51,23 @@ export const AiHub = () => {
 
   const handleGeneratePlan = async (e) => {
     e.preventDefault();
+    const calculatedDays = calculateDays();
+    if (calculatedDays <= 0 || calculatedDays > 30) {
+      setErrorMsg('Please select a valid Exam Date (1 to 30 days from today).');
+      return;
+    }
     setPlanLoading(true);
     setErrorMsg('');
     try {
-      const res = await api.post('/ai/study-plan', { subject: planSubject, days, hours_per_day: hours });
-      setPlanResponse(res.data.plan);
+      const res = await api.post('/ai/study-plan', { subject: planSubject, days: calculatedDays, hours_per_day: hours });
+      setPlanResponse({ plan: res.data.plan, examDate: examDate });
     } catch (err) {
       setErrorMsg('Failed to generate timetable. Check terminal logs.');
     } finally {
       setPlanLoading(false);
     }
   };
+
 
   return (
     <DashboardLayout>
@@ -102,18 +120,27 @@ export const AiHub = () => {
             <form onSubmit={handleAskDoubt} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Target Subject</label>
-                <select
+                <input
+                  type="text"
+                  list="subjects-list"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium focus:border-indigo-600 focus:outline-none bg-slate-50"
-                >
-                  <option value="Deep Learning">Deep Learning</option>
-                  <option value="Machine Learning">Machine Learning</option>
-                  <option value="Database Systems">Database Systems</option>
-                  <option value="Natural Language Processing">Natural Language Processing</option>
-                  <option value="Computer Networks">Computer Networks</option>
-                  <option value="Cloud Computing">Cloud Computing</option>
-                </select>
+                  placeholder="Type or select any subject..."
+                />
+                <datalist id="subjects-list">
+                  <option value="Deep Learning" />
+                  <option value="Machine Learning" />
+                  <option value="Database Systems" />
+                  <option value="Natural Language Processing" />
+                  <option value="Computer Networks" />
+                  <option value="Cloud Computing" />
+                  <option value="Data Structures & Algorithms" />
+                  <option value="Operating Systems" />
+                  <option value="Software Engineering" />
+                  <option value="Engineering Mathematics" />
+                  <option value="Automata Theory" />
+                </datalist>
               </div>
 
               <div>
@@ -190,29 +217,25 @@ export const AiHub = () => {
             <form onSubmit={handleGeneratePlan} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Subject</label>
-                <select
+                <input
+                  type="text"
+                  list="subjects-list"
                   value={planSubject}
                   onChange={(e) => setPlanSubject(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-slate-50 font-medium"
-                >
-                  <option value="Deep Learning">Deep Learning</option>
-                  <option value="Machine Learning">Machine Learning</option>
-                  <option value="Database Systems">Database Systems</option>
-                  <option value="Natural Language Processing">Natural Language Processing</option>
-                  <option value="Computer Networks">Computer Networks</option>
-                  <option value="Cloud Computing">Cloud Computing</option>
-                </select>
+                  placeholder="Type or select any subject..."
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Available Days</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Exam Date</label>
                 <input
-                  type="number"
-                  min="2"
-                  max="14"
-                  value={days}
-                  onChange={(e) => setDays(Number(e.target.value))}
+                  type="date"
+                  min={getTodayStr()}
+                  value={examDate}
+                  onChange={(e) => setExamDate(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-slate-50 font-medium"
+                  required
                 />
               </div>
 
@@ -239,18 +262,44 @@ export const AiHub = () => {
             </form>
           </div>
 
-          {planResponse && (
+          {planResponse && planResponse.plan && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {planResponse.map((dayItem, idx) => (
-                <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              {planResponse.plan.map((dayItem, idx) => {
+                const currentStudyDate = new Date(getTodayStr());
+                currentStudyDate.setDate(currentStudyDate.getDate() + (dayItem.day - 1));
+                const isExamDay = dayItem.day === calculateDays();
+
+                return (
+                <div key={idx} className={`bg-white p-5 rounded-2xl border shadow-sm flex flex-col justify-between ${isExamDay ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}>
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
-                        Day {dayItem.day}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className={`text-xs font-extrabold px-2.5 py-1 rounded-lg border inline-block mb-1 w-max ${isExamDay ? 'bg-red-100 text-red-700 border-red-200' : 'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
+                          Day {dayItem.day}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          {currentStudyDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          {isExamDay && ' (Exam Eve)'}
+                        </span>
+                      </div>
                       <span className="text-xs font-semibold text-slate-500">{dayItem.hours} Study Hours</span>
                     </div>
+                    {dayItem.module && (
+                      <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-1">
+                        {dayItem.module}
+                      </div>
+                    )}
                     <h3 className="text-sm font-bold text-slate-900 mb-3">{dayItem.topic}</h3>
+                    
+                    {dayItem.advice && (
+                      <div className="mb-4 bg-amber-50 border border-amber-100 p-3 rounded-xl">
+                        <p className="text-xs text-amber-800 font-medium leading-relaxed">
+                          <span className="font-bold uppercase tracking-wider text-[10px] block mb-1 text-amber-600">Expert Advice</span>
+                          {dayItem.advice}
+                        </p>
+                      </div>
+                    )}
+
                     <ul className="space-y-2 mb-4">
                       {dayItem.tasks.map((task, tIdx) => (
                         <li key={tIdx} className="text-xs text-slate-600 flex items-start gap-2">
@@ -264,11 +313,14 @@ export const AiHub = () => {
                     Target: Unit Mastery
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       )}
+
+
     </DashboardLayout>
   );
 };

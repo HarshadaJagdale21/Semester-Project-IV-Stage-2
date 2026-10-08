@@ -1,21 +1,26 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { GraduationCap, LogOut, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export const Navbar = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/95 px-6 backdrop-blur">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-100">
-          <GraduationCap className="h-6 w-6" />
+        <div className="flex h-10 w-10 overflow-hidden items-center justify-center rounded-xl bg-white shadow-sm border border-slate-200">
+          <img src="https://www.rcpit.ac.in/uploads/1599837268.png" alt="RCPIT Logo" className="h-8 w-8 object-contain" />
         </div>
-        <div>
-          <span className="text-lg font-bold tracking-tight text-slate-900">StudyMate</span>
-          <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
-            {user?.role === 'admin' ? 'Admin Portal' : 'Student Hub'}
-          </span>
+        <div className="flex flex-col">
+          <div className="flex items-center">
+            <span className="text-lg font-bold tracking-tight text-slate-900">RCPIT StudyMate</span>
+            <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider">
+              {user?.role === 'admin' ? 'Admin Portal' : 'Student Hub'}
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-500 font-medium">An Autonomous Institute | Affiliated to DBATU</span>
         </div>
       </div>
 
@@ -27,9 +32,17 @@ export const Navbar = () => {
           </span>
         </div>
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-          <User className="h-4 w-4" />
-        </div>
+        <button 
+          onClick={() => navigate('/profile')}
+          title="View Profile"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 overflow-hidden hover:ring-2 hover:ring-indigo-500 hover:ring-offset-2 transition-all cursor-pointer border border-slate-200"
+        >
+          {user?.profile_pic ? (
+            <img src={user.profile_pic} alt="Profile" className="h-full w-full object-cover" />
+          ) : (
+            <User className="h-4 w-4" />
+          )}
+        </button>
 
         <button
           onClick={logout}

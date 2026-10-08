@@ -3,7 +3,7 @@ import io
 import datetime
 import json
 from functools import wraps
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from pymongo import MongoClient
 from bson import ObjectId
@@ -14,11 +14,31 @@ from ai_engine import (
     run_doubt_solver,
     run_study_planner,
     run_test_generator,
-    run_recommendation_agent
+    run_recommendation_agent,
+    run_aptitude_generator
 )
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+@app.route("/api/files/<path:filename>")
+def serve_file(filename):
+    # Search for the file recursively in dataset_unzipped
+    dataset_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dataset_unzipped", "dataset"))
+    for root, dirs, files in os.walk(dataset_dir):
+        for f in files:
+            if f == filename:
+                return send_file(os.path.join(root, f))
+    return jsonify({"error": "File not found"}), 404
+
+import os
+# Mount the dataset_unzipped directory statically
+dataset_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'dataset_unzipped', 'dataset'))
+from flask import send_from_directory
+
+@app.route('/dataset/<path:filename>')
+def serve_dataset(filename):
+    return send_from_directory(dataset_path, filename)
 
 # MongoDB Configuration
 client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017/"))
@@ -30,6 +50,7 @@ syllabus_col = db["syllabus"]
 notes_col = db["notes"]
 pyq_col = db["question_papers"]
 aptitude_q_col = db["aptitude_questions"]
+aptitude_materials_col = db["aptitude_materials"]
 attempts_col = db["test_attempts"]
 study_plans_col = db["study_plans"]
 doubts_col = db["doubts"]
@@ -94,7 +115,7 @@ def register():
         "name": name,
         "email": email,
         "password_hash": generate_password_hash(password),
-        "role": data.get("role", "student"),
+        "role": "student", # Hardcoded for security: Nobody can register as admin
         "branch": data.get("branch", "AIML"),
         "year": data.get("year", "2024"),
         "semester": data.get("semester", "Semester 8"),
@@ -133,6 +154,29 @@ def login():
 @token_required
 def get_me(current_user):
     return jsonify({"user": current_user}), 200
+
+@app.route("/api/auth/me", methods=["PUT"])
+@token_required
+def update_me(current_user):
+    data = request.json or {}
+    updates = {}
+    
+    # Allow updating these fields
+    allowed_fields = ["name", "prn", "roll_no", "profile_pic", "bio", "phone"]
+    for field in allowed_fields:
+        if field in data:
+            updates[field] = data[field]
+            
+    if updates:
+        from bson.objectid import ObjectId
+        users_col.update_one({"_id": ObjectId(current_user["_id"])}, {"$set": updates})
+        
+        # Refetch updated user
+        updated_user = users_col.find_one({"_id": ObjectId(current_user["_id"])})
+        updated_user["_id"] = str(updated_user["_id"])
+        return jsonify({"user": updated_user, "message": "Profile updated successfully"}), 200
+        
+    return jsonify({"message": "No changes made"}), 200
 
 # --- STUDENT DASHBOARD STATS ---
 @app.route("/api/student/dashboard-stats", methods=["GET"])
@@ -197,20 +241,31 @@ def get_student_dashboard_stats(current_user):
 
 # --- ACADEMIC RESOURCES (SEARCH & FILTERS ACROSS ALL 279 FILES) ---
 @app.route("/api/resources", methods=["GET"])
-def get_resources():
+@token_required
+def get_resources(current_user):
     res_type = request.args.get("type", "notes")
-    branch = request.args.get("branch")
-    semester = request.args.get("semester")
-    subject = request.args.get("subject")
     search = request.args.get("search", "").strip()
+
+    branch = request.args.get("branch", "ALL")
+    semester = request.args.get("semester", "ALL")
+    subject = request.args.get("subject", "ALL")
+
+    if current_user.get("role") == "student":
+        # Strictly enforce branch and semester separation for students!
+        branch = current_user.get("branch", "AIML")
+        semester = current_user.get("semester", "Semester 5")
+        student_year = current_user.get("year", "2024")
 
     col = syllabus_col if res_type == "syllabus" else (pyq_col if res_type == "pyqs" else notes_col)
     query = {}
     
+    if current_user.get("role") == "student" and res_type == "syllabus":
+        query["year"] = student_year
+    
     if branch and branch != "ALL":
-        query["branch"] = {"$regex": f"^{branch}$", "$options": "i"}
+        query["$and"] = query.get("$and", []) + [{"$or": [{"branch": {"$regex": f"^{branch}$", "$options": "i"}}, {"branch": "ALL"}]}]
     if semester and semester != "ALL":
-        query["semester"] = {"$regex": f"^{semester}$", "$options": "i"}
+        query["$and"] = query.get("$and", []) + [{"$or": [{"semester": {"$regex": f"^{semester}$", "$options": "i"}}, {"semester": "ALL"}]}]
     if subject and subject != "ALL":
         query["subject"] = {"$regex": subject, "$options": "i"}
     if search:
@@ -290,6 +345,31 @@ def ai_study_plan(current_user):
     })
     return jsonify({"plan": plan, "subject": subject, "branch": branch}), 200
 
+@app.route("/api/ai/aptitude", methods=["POST"])
+@token_required
+def ai_aptitude(current_user):
+    data = request.json or {}
+    category = data.get("category", "Quantitative Aptitude").strip()
+    topic = data.get("topic", "General").strip()
+    count = int(data.get("count", 5))
+    difficulty = data.get("difficulty", "Medium").strip()
+
+    # Retrieve context from uploaded aptitude materials (RAG)
+    materials = list(aptitude_materials_col.find({
+        "$or": [
+            {"subject": {"$regex": category, "$options": "i"}},
+            {"title": {"$regex": topic, "$options": "i"}},
+            {"content": {"$regex": topic, "$options": "i"}}
+        ]
+    }).limit(3))
+    
+    context = ""
+    if materials:
+        context = "\n\n".join([m.get("content", "")[:1500] for m in materials])
+
+    questions = run_aptitude_generator(category, topic, count, difficulty, context)
+    return jsonify({"questions": questions}), 200
+
 # --- APTITUDE & EXAM EVALUATION ---
 @app.route("/api/aptitude/questions", methods=["GET"])
 def get_aptitude_questions():
@@ -305,10 +385,13 @@ def get_aptitude_questions():
 def submit_exam(current_user):
     data = request.json or {}
     answers = data.get("answers", {})
+    test_qids = data.get("test_question_ids", [])
 
-    all_qs = list(aptitude_q_col.find())
+    all_qs = list(aptitude_q_col.find({"_id": {"$in": [ObjectId(qid) for qid in test_qids]}})) if test_qids else list(aptitude_q_col.find())
     score = 0
-    total = len(all_qs)
+    total = len(all_qs) if test_qids else len(answers) # fallback if no test_qids
+    if total == 0: total = 1 # prevent division by zero
+    
     weak_topics = []
     detailed_results = []
 
@@ -332,7 +415,7 @@ def submit_exam(current_user):
             "explanation": q.get("explanation", "")
         })
 
-    accuracy = round((score / total * 100), 2) if total > 0 else 0
+    accuracy = round((score / total * 100), 2)
     attempt = {
         "student_email": current_user["email"],
         "student_name": current_user["name"],
@@ -349,15 +432,30 @@ def submit_exam(current_user):
 
 # --- PROJECTS & BOOKS ---
 @app.route("/api/projects", methods=["GET"])
-def get_projects():
-    projects = list(projects_col.find())
+@token_required
+def get_projects(current_user):
+    query = {}
+    if current_user.get("role") == "student":
+        branch = current_user.get("branch", "AIML")
+        semester = current_user.get("semester", "Semester 5")
+        query = {"branch": branch, "semester": semester}
+    
+    projects = list(projects_col.find(query))
     for p in projects:
         p["_id"] = str(p["_id"])
     return jsonify(projects), 200
 
 @app.route("/api/books", methods=["GET"])
-def get_books():
-    books = list(books_col.find())
+@token_required
+def get_books(current_user):
+    # Admins see all books, students see their specific branch and semester
+    query = {}
+    if current_user.get("role") == "student":
+        branch = current_user.get("branch", "AIML")
+        semester = current_user.get("semester", "Semester 5")
+        query = {"branch": branch, "semester": semester}
+    
+    books = list(books_col.find(query))
     for b in books:
         b["_id"] = str(b["_id"])
     return jsonify(books), 200
@@ -376,10 +474,31 @@ def admin_stats(current_user):
         "total_test_attempts": attempts_col.count_documents({})
     }), 200
 
-@app.route("/api/admin/students", methods=["GET"])
+@app.route("/api/admin/students", methods=["GET", "POST"])
 @token_required
 @role_required("admin")
 def admin_student_list(current_user):
+    if request.method == "POST":
+        data = request.json
+        # Create new student
+        if users_col.find_one({"email": data.get("email")}):
+            return jsonify({"error": "Student email already exists"}), 400
+        
+        from werkzeug.security import generate_password_hash
+        import datetime
+        new_student = {
+            "name": data.get("name"),
+            "email": data.get("email"),
+            "password_hash": generate_password_hash(data.get("password", "Student@2026")),
+            "role": "student",
+            "branch": data.get("branch", "AIML"),
+            "semester": data.get("semester", "Semester 5"),
+            "enrollment_number": data.get("enrollment_number", "UNKNOWN"),
+            "created_at": datetime.datetime.utcnow()
+        }
+        users_col.insert_one(new_student)
+        return jsonify({"message": "Student created successfully"}), 201
+
     students = list(users_col.find({"role": "student"}, {"password_hash": 0}))
     for s in students:
         s["_id"] = str(s["_id"])
@@ -387,6 +506,148 @@ def admin_student_list(current_user):
         s["last_score"] = f"{last['score']}/{last['total']}" if last else "Not Attempted"
         s["accuracy"] = f"{last['accuracy']}%" if last else "N/A"
     return jsonify(students), 200
+
+@app.route("/api/admin/students/<student_id>", methods=["GET", "DELETE"])
+@token_required
+@role_required("admin")
+def admin_manage_student(current_user, student_id):
+    try:
+        from bson import ObjectId
+        obj_id = ObjectId(student_id)
+        
+        if request.method == "GET":
+            student = users_col.find_one({"_id": obj_id, "role": "student"}, {"password_hash": 0})
+            if not student:
+                return jsonify({"error": "Student not found"}), 404
+            
+            student["_id"] = str(student["_id"])
+            # Get all test attempts
+            attempts = list(attempts_col.find({"student_email": student["email"]}).sort("submitted_at", -1))
+            for a in attempts:
+                a["_id"] = str(a["_id"])
+                
+            student["attempts"] = attempts
+            return jsonify(student), 200
+            
+        elif request.method == "DELETE":
+            res = users_col.delete_one({"_id": obj_id, "role": "student"})
+            if res.deleted_count == 1:
+                return jsonify({"message": "Student removed successfully"}), 200
+            return jsonify({"error": "Student not found"}), 404
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/api/admin/impersonate/<student_id>", methods=["POST"])
+@token_required
+@role_required("admin")
+def impersonate_student(current_user, student_id):
+    from bson import ObjectId
+    import jwt
+    import datetime
+    
+    student = users_col.find_one({"_id": ObjectId(student_id), "role": "student"})
+    if not student:
+        return jsonify({"error": "Student not found"}), 404
+        
+    token = jwt.encode({
+        'user_id': str(student['_id']),
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    }, app.config['SECRET_KEY'], algorithm="HS256")
+    
+    student["_id"] = str(student["_id"])
+    del student["password_hash"]
+    
+    return jsonify({"token": token, "user": student}), 200
+
+@app.route("/api/admin/upload", methods=["POST"])
+@token_required
+@role_required("admin")
+def upload_resource(current_user):
+    import datetime
+    import tempfile
+    from pathlib import Path
+    import sys
+    
+    # Import extract_content
+    sys.path.append(os.path.dirname(__file__))
+    try:
+        from import_dataset import extract_content
+    except ImportError:
+        def extract_content(fp): return "Extracted text content..."
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+    
+    temp_dir = tempfile.gettempdir()
+    file_path = os.path.join(temp_dir, file.filename)
+    file.save(file_path)
+    
+    content = extract_content(Path(file_path))
+    
+    title = request.form.get("title", file.filename)
+    subject = request.form.get("subject", "General")
+    branch = request.form.get("branch", "AIML")
+    semester = request.form.get("semester", "Semester 1")
+    unit = request.form.get("unit", "Unit 1")
+    res_type = request.form.get("type", "notes")
+    
+    doc = {
+        "title": title,
+        "file_name": file.filename,
+        "branch": branch,
+        "semester": semester,
+        "subject": subject,
+        "unit": unit,
+        "content": content,
+        "char_count": len(content),
+        "file_type": file.filename.split('.')[-1].upper(),
+        "created_at": datetime.datetime.utcnow(),
+        "uploaded_by": current_user["email"]
+    }
+    
+    if res_type == "syllabus":
+        target_collection = syllabus_col
+    elif res_type == "aptitude":
+        target_collection = aptitude_materials_col
+    else:
+        target_collection = notes_col
+    target_collection.insert_one(doc)
+    
+    try:
+        os.remove(file_path)
+    except:
+        pass
+    
+    return jsonify({"message": "File uploaded and indexed successfully"}), 201
+
+@app.route("/api/admin/syllabus/<id>", methods=["PUT"])
+@token_required
+@role_required("admin")
+def update_syllabus(current_user, id):
+    from bson.objectid import ObjectId
+    data = request.json
+    new_content = data.get("content")
+    if not new_content:
+        return jsonify({"error": "Content is required"}), 400
+    
+    res = syllabus_col.update_one({"_id": ObjectId(id)}, {"$set": {"content": new_content}})
+    if res.matched_count == 0:
+        return jsonify({"error": "Syllabus not found"}), 404
+    return jsonify({"message": "Syllabus updated successfully"}), 200
+
+@app.route("/api/admin/aptitude", methods=["POST"])
+@token_required
+@role_required("admin")
+def add_aptitude_question(current_user):
+    data = request.json
+    data["created_at"] = datetime.datetime.utcnow()
+    aptitude_q_col.insert_one(data)
+    return jsonify({"message": "Question added successfully"}), 201
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

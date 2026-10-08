@@ -7,7 +7,8 @@ import {
   BookOpen,
   FolderGit2,
   BookmarkCheck,
-  GraduationCap
+  GraduationCap,
+  User
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -16,6 +17,8 @@ export const Sidebar = () => {
 
   const links = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/profile', label: 'My Profile', icon: User },
+    { to: '/syllabus', label: 'AIML Syllabus', icon: BookOpen },
     { to: '/ai-hub', label: 'AI Agents Hub', icon: Brain },
     { to: '/aptitude', label: 'Aptitude Test', icon: FileQuestion },
     { to: '/resources', label: 'Academic Resources', icon: BookOpen },
