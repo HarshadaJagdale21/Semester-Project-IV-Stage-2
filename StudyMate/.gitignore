@@ -1,0 +1,16 @@
+# Node modules
+node_modules/
+
+# Python Virtual Environments
+venv/
+__pycache__/
+*.pyc
+
+# Environment Variables
+.env
+
+# Large files
+dataset.zip
+
+# Vercel
+.vercel/
